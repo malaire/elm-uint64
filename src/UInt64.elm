@@ -1286,17 +1286,17 @@ divMod dividend ((UInt64 divisorHigh divisorMid _) as divisor) =
                 (UInt64 dividendHigh dividendMid dividendLow) =
                     dividend
 
-                dividentHighMid =
+                dividendHighMid =
                     dividendHigh * limit24 + dividendMid
 
                 divisorFloat =
                     toFloat divisor
 
                 quotMidHigh =
-                    Basics.floor <| Basics.toFloat dividentHighMid / divisorFloat
+                    Basics.floor <| Basics.toFloat dividendHighMid / divisorFloat
 
                 midHighCarry =
-                    Basics.toFloat dividentHighMid - divisorFloat * Basics.toFloat quotMidHigh
+                    Basics.toFloat dividendHighMid - divisorFloat * Basics.toFloat quotMidHigh
 
                 midHighCarryWithLow =
                     midHighCarry * limit24 + Basics.toFloat dividendLow
