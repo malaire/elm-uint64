@@ -1,0 +1,18 @@
+{
+    "type": "package",
+    "name": "malaire/elm-uint64",
+    "summary": "64-bit unsigned integer with division",
+    "license": "MIT",
+    "version": "1.0.0",
+    "exposed-modules": [
+        "UInt64"
+    ],
+    "elm-version": "0.19.0 <= v < 0.20.0",
+    "dependencies": {
+        "elm/core": "1.0.0 <= v < 2.0.0"
+    },
+    "test-dependencies": {
+        "elm-explorations/test": "1.2.2 <= v < 2.0.0",
+        "malaire/elm-safe-int": "1.0.0 <= v < 2.0.0"
+    }
+}
