@@ -29,6 +29,7 @@ These are tested better so that other similar functions can then be tested again
 import Bitwise
 import Expect exposing (Expectation)
 import Fuzz exposing (Fuzzer)
+import List.Extra
 import Random
 import SafeInt
 import Shrink
@@ -67,6 +68,7 @@ all =
         , test_toInt32s_fromInt32s
 
         -- CONVERSION - STRING
+        , test_fromString
         , test_toHexString
         , test_toHexString_fromBigEndianBytes
 
@@ -667,6 +669,93 @@ test_toInt32s_fromInt32s =
 
 
 -- TESTS - CONVERSION - STRING
+
+
+test_fromString =
+    let
+        stringFuzzer : Fuzzer String
+        stringFuzzer =
+            -- For String of 10 characters, this gives about 50/50 chance of it being valid/invalid for `UInt64.fromString`.
+            Fuzz.frequency
+                [ ( 93, Fuzz.intRange (Char.toCode '0') (Char.toCode '9') )
+
+                -- NOTE: Don't generate lone high/low surrogates as this seems to cause problems with `elm-test`.
+                --       Such invalid String:s are possible in Elm, so I'd like to test them, but that doesn't seem possible for now.
+                , ( 3, Fuzz.intRange 0 0xD7FF )
+                , ( 1, Fuzz.intRange 0xE000 0xFFFF )
+                , ( 3, Fuzz.intRange 0x00100000 0x0010FFFF )
+                ]
+                |> Fuzz.list
+                |> Fuzz.map (List.map Char.fromCode >> String.fromList)
+    in
+    describe "fromString"
+        [ -- INDIVIDUAL
+          test "empty string" <|
+            \_ -> UInt64.fromString "" |> Expect.equal Nothing
+        , test "0" <|
+            \_ -> UInt64.fromString "0" |> Expect.equal (Just UInt64.zero)
+        , test "a lot of zeroes" <|
+            \_ -> UInt64.fromString "0000000000000000000000000000000000000000" |> Expect.equal (Just UInt64.zero)
+        , test "1 + a lot of leading zeroes" <|
+            \_ -> UInt64.fromString "00000000000000000000000000000000000000001" |> Expect.equal (Just UInt64.one)
+        , test "1 + a lot of trailing zeroes" <|
+            \_ -> UInt64.fromString "10000000000000000000000000000000000000000" |> Expect.equal Nothing
+        , test "maxValue" <|
+            \_ -> UInt64.fromString "18446744073709551615" |> Expect.equal (Just UInt64.maxValue)
+        , test "maxValue with a lot of leading zeroes" <|
+            \_ -> UInt64.fromString "0000000000000000000018446744073709551615" |> Expect.equal (Just UInt64.maxValue)
+        , test "maxValue + 1" <|
+            \_ -> UInt64.fromString "18446744073709551616" |> Expect.equal Nothing
+        , test "highDecimal == 1844674408" <|
+            \_ -> UInt64.fromString "18446744080000000000" |> Expect.equal Nothing
+        , test "x0" <|
+            \_ -> UInt64.fromString "x0" |> Expect.equal Nothing
+        , test "0x" <|
+            \_ -> UInt64.fromString "0x" |> Expect.equal Nothing
+
+        -- FUZZ
+        -- FULL RANGE FUZZ: fromString  ; these two fuzz together
+        , fuzz2 uint64 (Fuzz.list <| Fuzz.constant '0') "fuzz of valid strings" <|
+            \a zeroes ->
+                (String.fromList zeroes ++ UInt64.toString a)
+                    |> UInt64.fromString
+                    |> Expect.equal (Just a)
+        , fuzz stringFuzzer "fuzz of any string" <|
+            \str ->
+                UInt64.fromString str
+                    |> Expect.equal
+                        (if String.isEmpty str || String.any (not << Char.isDigit) str then
+                            Nothing
+
+                         else
+                            let
+                                filteredString =
+                                    str
+                                        |> String.toList
+                                        |> List.filter Char.isDigit
+                                        |> List.Extra.dropWhile ((==) '0')
+                                        |> String.fromList
+
+                                filteredStringLength =
+                                    String.length filteredString
+                            in
+                            if filteredStringLength > 20 || filteredStringLength == 20 && filteredString > "18446744073709551615" then
+                                Nothing
+
+                            else
+                                -- String is now known to be valid and within range,
+                                -- so it can be converted digit-by-digit without overflow check.
+                                filteredString
+                                    |> String.toList
+                                    |> List.foldl
+                                        (\char accum ->
+                                            UInt64.mul accum (UInt64.fromInt 10)
+                                                |> UInt64.add (UInt64.fromInt (Char.toCode char - Char.toCode '0'))
+                                        )
+                                        UInt64.zero
+                                    |> Just
+                        )
+        ]
 
 
 test_toHexString =

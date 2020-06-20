@@ -1,8 +1,8 @@
 # Changelog
 
 ## [Unreleased]
-
-_No unreleased changes worth mentioning._
+### Added
+- `fromString`
 
 ## [1.0.0] - 2020-06-20
 ### Added

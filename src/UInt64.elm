@@ -5,7 +5,7 @@ module UInt64 exposing
     , fromInt, toInt31, toInt53
     , floor, toFloat
     , fromInt32s, toInt32s, fromInt24s, toInt24s, fromDecimal12s, fromBigEndianBytes, toBigEndianBytes
-    , toString, toHexString
+    , fromString, toString, toHexString
     , add, sub, mul, pow, increment, decrement
     , divMod
     , and, or, xor, complement, shiftLeftBy, shiftRightZfBy, rotateLeftBy, rotateRightBy, getBit, setBit
@@ -32,7 +32,7 @@ module UInt64 exposing
       - [`fromDecimal12s`](#fromDecimal12s)
       - [`fromBigEndianBytes`](#fromBigEndianBytes), [`toBigEndianBytes`](#toBigEndianBytes)
   - [Conversion - String](#conversion-string)
-      - [`toString`](#toString), [`toHexString`](#toHexString)
+      - [`fromString`](#fromString), [`toString`](#toString), [`toHexString`](#toHexString)
   - [Math](#math)
       - [`add`](#add), [`sub`](#sub), [`mul`](#mul), [`pow`](#pow)
       - [`increment`](#increment), [`decrement`](#decrement)
@@ -109,7 +109,7 @@ up to [`maxSafe`](#maxSafe), but this could change in the future.
 
 # Conversion - String
 
-@docs toString, toHexString
+@docs fromString, toString, toHexString
 
 
 # Math
@@ -785,6 +785,105 @@ toInt32s (UInt64 high mid low) =
 
 
 -- CONVERSION - STRING
+
+
+{-| Convert decimal `String` to [`UInt64`](#UInt64).
+
+Return `Nothing` if `String` contains any other character than digits `0123456789`,
+or if the value would be above [`maxValue`](#maxValue).
+
+    UInt64.fromString "12345"
+        |> Maybe.map UInt64.toFloat
+        --> Just 12345
+
+    -- `Nothing` because `e` is not valid digit
+    UInt64.fromString "1e10"
+        --> Nothing
+
+    -- `Nothing` because value would be above `maxValue`
+    UInt64.fromString "111222333444555666777"
+        --> Nothing
+
+**Note:** Behavior is undefined if `String` contains invalid Unicode.
+Such `String`:s can't be fuzz-tested with `elm-test` currently,
+so I can't make this function robust against invalid Unicode.
+
+-}
+fromString : String -> Maybe UInt64
+fromString givenString =
+    let
+        -- return `Just []` if `String` has only zeroes
+        -- return `Nothing` for empty or otherwise invalid `String`
+        toDigitsWithoutLeadingZeroes : String -> Maybe (List Int)
+        toDigitsWithoutLeadingZeroes str =
+            if String.isEmpty str then
+                Nothing
+
+            else
+                String.toList str
+                    |> List.foldl
+                        (\char accum ->
+                            if '0' <= char && char <= '9' then
+                                case ( char, accum ) of
+                                    ( '0', Just [] ) ->
+                                        Just []
+
+                                    ( _, Just prev ) ->
+                                        Just <| Char.toCode char - Char.toCode '0' :: prev
+
+                                    ( _, Nothing ) ->
+                                        Nothing
+
+                            else
+                                Nothing
+                        )
+                        (Just [])
+                    |> Maybe.map List.reverse
+
+        -- argument must be a list of at most 15 integers within `0 <= x <= 9`
+        riskyDigitsToFloat : List Int -> Float
+        riskyDigitsToFloat digits =
+            List.foldl
+                (\digit accum ->
+                    accum * 10.0 + Basics.toFloat digit
+                )
+                0.0
+                digits
+    in
+    case toDigitsWithoutLeadingZeroes givenString of
+        Nothing ->
+            Nothing
+
+        Just digits ->
+            let
+                digitCount =
+                    List.length digits
+
+                highDigitCount =
+                    digitCount - 10
+            in
+            if digitCount > 20 then
+                -- above maxValue
+                Nothing
+
+            else
+                let
+                    lowDecimal =
+                        riskyDigitsToFloat <| List.drop highDigitCount digits
+
+                    highDecimal =
+                        riskyDigitsToFloat <| List.take highDigitCount digits
+                in
+                -- maxValue = 1844674407|3709551615
+                if highDecimal > 1844674407.0 || (highDecimal == 1844674407.0 && lowDecimal > 3709551615.0) then
+                    -- above maxValue
+                    Nothing
+
+                else
+                    -- highDecimal * 1e10 + lowDecimal
+                    mul (floor highDecimal) (UInt64 0 0x0254 0x000BE400)
+                        |> add (floor lowDecimal)
+                        |> Just
 
 
 {-| Convert [`UInt64`](#UInt64) to uppercase hexadecimal `String` of 16 characters.
