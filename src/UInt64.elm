@@ -1129,20 +1129,29 @@ pow ((UInt64 baseHigh baseMid baseLow) as base) ((UInt64 expHigh expMid expLow) 
 powHelper : UInt64 -> UInt64 -> UInt64 -> UInt64
 powHelper multiplier base ((UInt64 _ _ exponentLow) as exponent) =
     -- tail recursive algorithm from https://en.wikipedia.org/wiki/Exponentiation_by_squaring
+    --
+    -- Algorithm
+    -- - INVARIANT: value of `multiplier * base ^ exponent` doesn't change
+    -- - begin with `1 * base ^ exponent`
+    -- - half exponent at each step, increasing either `multiplier` or `base` to keep invariant
+    -- - when exponent reaches 0 or 1, return `multiplier * base ^ exponent`
+    --   - which is just `multiplier` (if exponent is 0) or `multiplier * base` (if exponent is 1)
     if exponent == zero then
+        -- m * b ^ 0 == m
         multiplier
 
     else if exponent == one then
-        mul base multiplier
+        -- m * b ^ 1 == m * b
+        mul multiplier base
 
     else if Bitwise.and 0x01 exponentLow == 0 then
         -- even exponent
-        --   x ^ n == (x * x) ^ (n / 2)
+        --   m * b ^ e == m * (b * b) ^ (e / 2)
         powHelper multiplier (mul base base) (shiftRightZfBy 1 exponent)
 
     else
         -- odd exponent
-        --   x ^ n == x * (x * x) ^ ((n - 1) / 2)
+        --   m * b ^ e == (m * b) * (b * b) ^ ((e - 1) / 2)
         powHelper (mul multiplier base) (mul base base) (shiftRightZfBy 1 exponent)
 
 
