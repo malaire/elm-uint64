@@ -998,12 +998,12 @@ test_divModFast_individual =
                     UInt64.divModFast UInt64.maxValue (UInt64.fromInt 1923)
                         |> Expect.equal
                             (Ok <| ( UInt64.fromInt24s 34 1343573 3358933, UInt64.zero ))
-            , test "delta72 > divisor &6 deltaMod == 0 ; 2020-06-10" <|
+            , test "delta72 > divisor && deltaMod == 0 ; 2020-06-10" <|
                 \_ ->
                     UInt64.divModFast UInt64.maxValue (UInt64.fromInt 5)
                         |> Expect.equal
                             (Ok <| ( UInt64.fromInt24s 13107 3355443 3355443, UInt64.zero ))
-            , test "delta72 > divisor &6 deltaMod /= 0 ; 2020-06-10" <|
+            , test "delta72 > divisor && deltaMod /= 0 ; 2020-06-10" <|
                 \_ ->
                     UInt64.divModFast UInt64.maxValue (UInt64.fromInt 972)
                         |> Expect.equal

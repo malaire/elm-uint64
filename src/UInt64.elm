@@ -664,7 +664,7 @@ fromDecimal12s givenHigh givenLow =
         floor limitedLow
 
     else
-        -- givenHigh * 1e12 + clampedLow
+        -- givenHigh * 1e12 + limitedLow
         mul (floor limitedHigh) (UInt64 0 0xE8D4 0x00A51000)
             |> add (floor limitedLow)
 
