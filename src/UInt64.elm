@@ -1281,7 +1281,7 @@ divMod dividend ((UInt64 divisorHigh divisorMid _) as divisor) =
 
         else
             -- `divisor` can be at most 29 bits
-            -- Limiting factor is that `midHighCarry * limit24 + dividendLow` <= `2 ^ 53 - 1`.
+            -- Limiting factor is that `highMidCarry * limit24 + dividendLow` <= `2 ^ 53 - 1`.
             let
                 (UInt64 dividendHigh dividendMid dividendLow) =
                     dividend
@@ -1292,32 +1292,32 @@ divMod dividend ((UInt64 divisorHigh divisorMid _) as divisor) =
                 divisorFloat =
                     toFloat divisor
 
-                quotMidHigh =
+                quotHighMid =
                     Basics.floor <| Basics.toFloat dividendHighMid / divisorFloat
 
-                midHighCarry =
-                    Basics.toFloat dividendHighMid - divisorFloat * Basics.toFloat quotMidHigh
+                highMidCarry =
+                    Basics.toFloat dividendHighMid - divisorFloat * Basics.toFloat quotHighMid
 
-                midHighCarryWithLow =
-                    midHighCarry * limit24 + Basics.toFloat dividendLow
+                highMidCarryWithLow =
+                    highMidCarry * limit24 + Basics.toFloat dividendLow
 
                 quotLow =
-                    Basics.floor <| midHighCarryWithLow / divisorFloat
+                    Basics.floor <| highMidCarryWithLow / divisorFloat
 
                 quotHigh =
-                    Basics.floor <| Basics.toFloat quotMidHigh / limit24
+                    Basics.floor <| Basics.toFloat quotHighMid / limit24
 
                 quotMid =
-                    quotMidHigh - quotHigh * limit24
+                    quotHighMid - quotHigh * limit24
 
-                modLowMid =
-                    midHighCarryWithLow - divisorFloat * Basics.toFloat quotLow
+                modMidLow =
+                    highMidCarryWithLow - divisorFloat * Basics.toFloat quotLow
 
                 modMid =
-                    Basics.floor <| modLowMid / limit24
+                    Basics.floor <| modMidLow / limit24
 
                 modLow =
-                    Basics.floor modLowMid - modMid * limit24
+                    Basics.floor modMidLow - modMid * limit24
             in
             ( UInt64 quotHigh quotMid quotLow
             , UInt64 0 modMid modLow
@@ -2089,17 +2089,17 @@ floorAnyPositiveFloat x =
 riskyFloatTo64 : UFloat53 -> UInt64
 riskyFloatTo64 x =
     let
-        lowRest =
+        highMid =
             Basics.floor <| x / limit24
 
         low =
-            Basics.floor x - lowRest * limit24
+            Basics.floor x - highMid * limit24
 
         high =
-            Basics.floor <| Basics.toFloat lowRest / limit24
+            Basics.floor <| Basics.toFloat highMid / limit24
 
         mid =
-            lowRest - high * limit24
+            highMid - high * limit24
     in
     UInt64 high mid low
 
