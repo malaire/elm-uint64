@@ -27,9 +27,9 @@ These are tested better so that other similar functions can then be tested again
 -}
 
 import Bitwise
+import Dict exposing (Dict)
 import Expect exposing (Expectation)
 import Fuzz exposing (Fuzzer)
-import List.Extra
 import Random
 import SafeInt
 import Shrink
@@ -673,25 +673,60 @@ test_toInt32s_fromInt32s =
 
 test_fromString =
     let
-        stringFuzzer : Fuzzer String
-        stringFuzzer =
-            -- For String of 10 characters, this gives about 50/50 chance of it being valid/invalid for `UInt64.fromString`.
+        anyCharFuzzer : Fuzzer Char
+        anyCharFuzzer =
             Fuzz.frequency
-                [ ( 93, Fuzz.intRange (Char.toCode '0') (Char.toCode '9') )
+                [ -- NOTE: Don't generate lone high/low surrogates as this seems to cause problems with `elm-test`.
+                  --       Such invalid String:s are possible in Elm, and so I'd like to test them,
+                  --       but that doesn't seem possible for now.
+                  ( 3, Fuzz.map Char.fromCode <| Fuzz.intRange 0 0xD7FF )
+                , ( 1, Fuzz.map Char.fromCode <| Fuzz.intRange 0xE000 0xFFFF )
+                , ( 3, Fuzz.map Char.fromCode <| Fuzz.intRange 0x00100000 0x0010FFFF )
+                ]
 
-                -- NOTE: Don't generate lone high/low surrogates as this seems to cause problems with `elm-test`.
-                --       Such invalid String:s are possible in Elm, so I'd like to test them, but that doesn't seem possible for now.
-                , ( 3, Fuzz.intRange 0 0xD7FF )
-                , ( 1, Fuzz.intRange 0xE000 0xFFFF )
-                , ( 3, Fuzz.intRange 0x00100000 0x0010FFFF )
+        withoutPrefixFuzzer : Dict Char a -> Fuzzer String
+        withoutPrefixFuzzer chars =
+            -- For String of 10 characters, this gives about 50/50 chance of it containing at least one incorrect char.
+            Fuzz.frequency
+                [ ( 93, Fuzz.oneOf <| List.map Fuzz.constant <| Dict.keys chars )
+                , ( 7, anyCharFuzzer )
                 ]
                 |> Fuzz.list
-                |> Fuzz.map (List.map Char.fromCode >> String.fromList)
+                |> Fuzz.map String.fromList
+
+        withPrefixFuzzer : Fuzzer String
+        withPrefixFuzzer =
+            -- This seems to occasionally generate valid strings.
+            let
+                prefixChar =
+                    Fuzz.frequency
+                        [ ( 2, Fuzz.constant '0' )
+                        , ( 2, Fuzz.constant '1' )
+                        , ( 31, Fuzz.constant 'x' )
+                        , ( 31, Fuzz.constant 'o' )
+                        , ( 31, Fuzz.constant 'b' )
+                        , ( 3, anyCharFuzzer )
+                        ]
+
+                list =
+                    Fuzz.frequency
+                        [ ( 62, Fuzz.constant '0' )
+                        , ( 31, Fuzz.constant '1' )
+                        , ( 1, Fuzz.constant 'x' )
+                        , ( 1, Fuzz.constant 'o' )
+                        , ( 1, Fuzz.constant 'b' )
+                        , ( 4, anyCharFuzzer )
+                        ]
+                        |> Fuzz.list
+            in
+            Fuzz.map3 (\a b c -> String.fromList <| a ++ [ b ] ++ c) list prefixChar list
     in
     describe "fromString"
         [ -- INDIVIDUAL
           test "empty string" <|
             \_ -> UInt64.fromString "" |> Expect.equal Nothing
+
+        -- INDIVIDUAL - DECIMAL
         , test "0" <|
             \_ -> UInt64.fromString "0" |> Expect.equal (Just UInt64.zero)
         , test "a lot of zeroes" <|
@@ -708,53 +743,85 @@ test_fromString =
             \_ -> UInt64.fromString "18446744073709551616" |> Expect.equal Nothing
         , test "highDecimal == 1844674408" <|
             \_ -> UInt64.fromString "18446744080000000000" |> Expect.equal Nothing
+
+        -- INDIVIDUAL - HEX
+        , test "x" <|
+            \_ -> UInt64.fromString "x" |> Expect.equal Nothing
         , test "x0" <|
             \_ -> UInt64.fromString "x0" |> Expect.equal Nothing
         , test "0x" <|
             \_ -> UInt64.fromString "0x" |> Expect.equal Nothing
+        , test "0x0" <|
+            \_ -> UInt64.fromString "0x0" |> Expect.equal (Just UInt64.zero)
+        , test "00x0" <|
+            \_ -> UInt64.fromString "00x0" |> Expect.equal Nothing
+        , test "hex, a lot of zeroes" <|
+            \_ -> UInt64.fromString "0x0000000000000000000000000000000000000000" |> Expect.equal (Just UInt64.zero)
+        , test "hex, mixed case" <|
+            \_ -> UInt64.fromString "0xaAbBcCdDeEfF" |> Expect.equal (Just <| UInt64.fromInt24s 0 0x00AABBCC 0x00DDEEFF)
+        , test "hex, maxValue" <|
+            \_ -> UInt64.fromString "0xFFFFFFFFFFFFFFFF" |> Expect.equal (Just UInt64.maxValue)
+        , test "hex, maxValue with a lot of leading zeroes" <|
+            \_ -> UInt64.fromString "0x00000000000000000000FFFFFFFFFFFFFFFF" |> Expect.equal (Just UInt64.maxValue)
+        , test "hex, maxValue + 1" <|
+            \_ -> UInt64.fromString "0x10000000000000000" |> Expect.equal Nothing
+
+        -- INDIVIDUAL - OCTAL
+        , test "0o" <|
+            \_ -> UInt64.fromString "0o" |> Expect.equal Nothing
+        , test "octal, with digit 8" <|
+            \_ -> UInt64.fromString "0o787" |> Expect.equal Nothing
+        , test "octal, maxValue" <|
+            \_ -> UInt64.fromString "0o1777777777777777777777" |> Expect.equal (Just UInt64.maxValue)
+        , test "octal, maxValue + 1" <|
+            \_ -> UInt64.fromString "0o2000000000000000000000" |> Expect.equal Nothing
+
+        -- INDIVIDUAL - BINARY
+        , test "0b" <|
+            \_ -> UInt64.fromString "0b" |> Expect.equal Nothing
+        , test "binary, with digit 2" <|
+            \_ -> UInt64.fromString "0b121" |> Expect.equal Nothing
+        , test "binary, maxValue" <|
+            \_ ->
+                UInt64.fromString "0b1111111111111111111111111111111111111111111111111111111111111111"
+                    |> Expect.equal (Just UInt64.maxValue)
+        , test "binary, maxValue + 1" <|
+            \_ ->
+                UInt64.fromString "0b10000000000000000000000000000000000000000000000000000000000000000"
+                    |> Expect.equal Nothing
 
         -- FUZZ
-        -- FULL RANGE FUZZ: fromString  ; these two fuzz together
-        , fuzz2 uint64 (Fuzz.list <| Fuzz.constant '0') "fuzz of valid strings" <|
+        -- FULL RANGE FUZZ: fromString  ; these all fuzz together
+        , fuzz2 uint64 (Fuzz.list <| Fuzz.constant '0') "fuzz - valid decimal" <|
             \a zeroes ->
                 (String.fromList zeroes ++ UInt64.toString a)
                     |> UInt64.fromString
                     |> Expect.equal (Just a)
-        , fuzz stringFuzzer "fuzz of any string" <|
-            \str ->
-                UInt64.fromString str
-                    |> Expect.equal
-                        (if String.isEmpty str || String.any (not << Char.isDigit) str then
-                            Nothing
-
-                         else
-                            let
-                                filteredString =
-                                    str
-                                        |> String.toList
-                                        |> List.filter Char.isDigit
-                                        |> List.Extra.dropWhile ((==) '0')
-                                        |> String.fromList
-
-                                filteredStringLength =
-                                    String.length filteredString
-                            in
-                            if filteredStringLength > 20 || filteredStringLength == 20 && filteredString > "18446744073709551615" then
-                                Nothing
-
-                            else
-                                -- String is now known to be valid and within range,
-                                -- so it can be converted digit-by-digit without overflow check.
-                                filteredString
-                                    |> String.toList
-                                    |> List.foldl
-                                        (\char accum ->
-                                            UInt64.mul accum (UInt64.fromInt 10)
-                                                |> UInt64.add (UInt64.fromInt (Char.toCode char - Char.toCode '0'))
-                                        )
-                                        UInt64.zero
-                                    |> Just
-                        )
+        , fuzz2 uint64 (Fuzz.list <| Fuzz.constant '0') "fuzz - valid hex" <|
+            \a zeroes ->
+                ("0x" ++ String.fromList zeroes ++ UInt64.toHexString a)
+                    |> UInt64.fromString
+                    |> Expect.equal (Just a)
+        , fuzz2 uint64 (Fuzz.list <| Fuzz.constant '0') "fuzz - valid octal" <|
+            \a zeroes ->
+                ("0o" ++ String.fromList zeroes ++ toBinaryOrOctalString (UInt64.fromInt 8) "" a)
+                    |> UInt64.fromString
+                    |> Expect.equal (Just a)
+        , fuzz2 uint64 (Fuzz.list <| Fuzz.constant '0') "fuzz - valid binary" <|
+            \a zeroes ->
+                ("0b" ++ String.fromList zeroes ++ toBinaryOrOctalString UInt64.two "" a)
+                    |> UInt64.fromString
+                    |> Expect.equal (Just a)
+        , fuzz (withoutPrefixFuzzer charToDecimalDigit) "fuzz - valid/invalid decimal" <|
+            \str -> UInt64.fromString str |> Expect.equal (alternativeFromString str)
+        , fuzz (withoutPrefixFuzzer charToHexDigit) "fuzz - valid/invalid hex with valid prefix" <|
+            \str -> UInt64.fromString ("0x" ++ str) |> Expect.equal (alternativeFromString ("0x" ++ str))
+        , fuzz (withoutPrefixFuzzer charToOctalDigit) "fuzz - valid/invalid octal with valid prefix" <|
+            \str -> UInt64.fromString ("0o" ++ str) |> Expect.equal (alternativeFromString ("0o" ++ str))
+        , fuzz (withoutPrefixFuzzer charToBinaryDigit) "fuzz - valid/invalid binary with valid prefix" <|
+            \str -> UInt64.fromString ("0b" ++ str) |> Expect.equal (alternativeFromString ("0b" ++ str))
+        , fuzz withPrefixFuzzer "fuzz - mostly invalid anything" <|
+            \str -> UInt64.fromString str |> Expect.equal (alternativeFromString str)
         ]
 
 
@@ -1594,7 +1661,82 @@ uintUniformByValue maxBits =
 
 
 
--- HELPERS
+-- HELPERS - CHAR / STRING
+
+
+{-| Alternative implementation of `UInt64.fromString` to test against.
+-}
+alternativeFromString : String -> Maybe UInt64
+alternativeFromString str =
+    if String.startsWith "0x" str then
+        fromUnprefixedString (UInt64.fromInt24s 0 0 16) charToHexDigit <| String.dropLeft 2 str
+
+    else if String.startsWith "0o" str then
+        fromUnprefixedString (UInt64.fromInt24s 0 0 8) charToOctalDigit <| String.dropLeft 2 str
+
+    else if String.startsWith "0b" str then
+        fromUnprefixedString (UInt64.fromInt24s 0 0 2) charToBinaryDigit <| String.dropLeft 2 str
+
+    else
+        fromUnprefixedString (UInt64.fromInt24s 0 0 10) charToDecimalDigit str
+
+
+charToBinaryDigit =
+    Dict.fromList
+        [ ( '0', 0 ), ( '1', 1 ) ]
+
+
+charToDecimalDigit =
+    Dict.fromList
+        [ ( '0', 0 ), ( '1', 1 ), ( '2', 2 ), ( '3', 3 ), ( '4', 4 ), ( '5', 5 ), ( '6', 6 ), ( '7', 7 ), ( '8', 8 ), ( '9', 9 ) ]
+
+
+charToHexDigit =
+    Dict.fromList <|
+        [ ( '0', 0 ), ( '1', 1 ), ( '2', 2 ), ( '3', 3 ), ( '4', 4 ), ( '5', 5 ), ( '6', 6 ), ( '7', 7 ), ( '8', 8 ), ( '9', 9 ) ]
+            ++ [ ( 'A', 10 ), ( 'B', 11 ), ( 'C', 12 ), ( 'D', 13 ), ( 'E', 14 ), ( 'F', 15 ) ]
+            ++ [ ( 'a', 10 ), ( 'b', 11 ), ( 'c', 12 ), ( 'd', 13 ), ( 'e', 14 ), ( 'f', 15 ) ]
+
+
+charToOctalDigit =
+    Dict.fromList
+        [ ( '0', 0 ), ( '1', 1 ), ( '2', 2 ), ( '3', 3 ), ( '4', 4 ), ( '5', 5 ), ( '6', 6 ), ( '7', 7 ) ]
+
+
+{-| Helper for `alternativeFromString`.
+-}
+fromUnprefixedString : UInt64 -> Dict Char Int -> String -> Maybe UInt64
+fromUnprefixedString base charToDigit str =
+    if String.isEmpty str then
+        Nothing
+
+    else
+        str
+            |> String.foldl
+                (\char accum ->
+                    case ( accum, Dict.get char charToDigit ) of
+                        ( Just accum_, Just digitInt ) ->
+                            let
+                                digit =
+                                    UInt64.fromInt digitInt
+
+                                newAccum =
+                                    UInt64.add digit <| UInt64.mul accum_ base
+
+                                ( div, mod ) =
+                                    UInt64.divMod newAccum base
+                            in
+                            if div /= accum_ || mod /= digit then
+                                -- overflow
+                                Nothing
+
+                            else
+                                Just newAccum
+
+                        _ ->
+                            Nothing
+                )
+                (Just UInt64.zero)
 
 
 {-| Different implementation from UInt64.elm to compare against.
@@ -1653,3 +1795,26 @@ nibbleToHex x =
         _ ->
             -- different character for invalid argument, compated to UInt64.elm
             '*'
+
+
+{-| This can be replaced with ~~ UInt64.toBinString / UInt64.toOctString ~~ if those are implemented.
+-}
+toBinaryOrOctalString : UInt64 -> String -> UInt64 -> String
+toBinaryOrOctalString divisor tail x =
+    let
+        ( rest, digit ) =
+            UInt64.divMod x divisor
+
+        char =
+            case UInt64.toInt31 digit of
+                Nothing ->
+                    'X'
+
+                Just digit_ ->
+                    Char.fromCode <| Char.toCode '0' + digit_
+    in
+    if rest == UInt64.zero then
+        String.cons char tail
+
+    else
+        toBinaryOrOctalString divisor (String.cons char tail) rest

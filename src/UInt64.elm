@@ -787,74 +787,51 @@ toInt32s (UInt64 high mid low) =
 -- CONVERSION - STRING
 
 
-{-| Convert decimal `String` to [`UInt64`](#UInt64).
+{-| Convert `String` to [`UInt64`](#UInt64).
 
-Return `Nothing` if `String` contains any other character than digits `0123456789`,
+`String` can be
+
+  - decimal `String` of digits `0123456789`
+  - hexadecimal `String` with prefix `0x` and digits `0123456789ABCDEFabcdef`
+  - octal `String` with prefix `0o` and digits `01234567`
+  - binary `String` with prefix `0b` and digits `01`
+
+Return `Nothing` if `String` isn't valid for any of the above formats,
 or if the value would be above [`maxValue`](#maxValue).
 
-    UInt64.fromString "12345"
-        |> Maybe.map UInt64.toFloat
-        --> Just 12345
-
-    -- `Nothing` because `e` is not valid digit
-    UInt64.fromString "1e10"
-        --> Nothing
-
-    -- `Nothing` because value would be above `maxValue`
-    UInt64.fromString "111222333444555666777"
-        --> Nothing
-
-**Note:** Behavior is undefined if `String` contains invalid Unicode.
+Behavior is undefined if `String` contains invalid Unicode.
 Such `String`:s can't be fuzz-tested with `elm-test` currently,
 so I can't make this function robust against invalid Unicode.
 
+    UInt64.fromString "12345"
+        |> Maybe.andThen UInt64.toInt31
+        --> Just 12345
+
+    UInt64.fromString "0x11223344AABBCCDD"
+        |> Maybe.map UInt64.toInt32s
+        --> Just ( 0x11223344, 0xAABBCCDD )
+
+    UInt64.fromString "0o777"
+        |> Maybe.map UInt64.toHexString
+        --> Just "00000000000001FF"
+
+    UInt64.fromString "0b1111000011110000"
+        |> Maybe.map UInt64.toHexString
+        --> Just "000000000000F0F0"
+
+    -- `e` is not valid without `0x` prefix
+    UInt64.fromString "1e10"
+        --> Nothing
+
+    -- value would be above `maxValue`
+    UInt64.fromString "111222333444555666777"
+        --> Nothing
+
 -}
 fromString : String -> Maybe UInt64
-fromString givenString =
-    let
-        -- return `Just []` if `String` has only zeroes
-        -- return `Nothing` for empty or otherwise invalid `String`
-        toDigitsWithoutLeadingZeroes : String -> Maybe (List Int)
-        toDigitsWithoutLeadingZeroes str =
-            if String.isEmpty str then
-                Nothing
-
-            else
-                String.toList str
-                    |> List.foldl
-                        (\char accum ->
-                            if '0' <= char && char <= '9' then
-                                case ( char, accum ) of
-                                    ( '0', Just [] ) ->
-                                        Just []
-
-                                    ( _, Just prev ) ->
-                                        Just <| Char.toCode char - Char.toCode '0' :: prev
-
-                                    ( _, Nothing ) ->
-                                        Nothing
-
-                            else
-                                Nothing
-                        )
-                        (Just [])
-                    |> Maybe.map List.reverse
-
-        -- argument must be a list of at most 15 integers within `0 <= x <= 9`
-        riskyDigitsToFloat : List Int -> Float
-        riskyDigitsToFloat digits =
-            List.foldl
-                (\digit accum ->
-                    accum * 10.0 + Basics.toFloat digit
-                )
-                0.0
-                digits
-    in
-    case toDigitsWithoutLeadingZeroes givenString of
-        Nothing ->
-            Nothing
-
-        Just digits ->
+fromString str =
+    case stringToDigitsWithoutLeadingZeroes str of
+        Just (Decimal digits) ->
             let
                 digitCount =
                     List.length digits
@@ -863,20 +840,18 @@ fromString givenString =
                     digitCount - 10
             in
             if digitCount > 20 then
-                -- above maxValue
                 Nothing
 
             else
                 let
                     lowDecimal =
-                        riskyDigitsToFloat <| List.drop highDigitCount digits
+                        riskyDigitsToFloat 10.0 <| List.drop highDigitCount digits
 
                     highDecimal =
-                        riskyDigitsToFloat <| List.take highDigitCount digits
+                        riskyDigitsToFloat 10.0 <| List.take highDigitCount digits
                 in
                 -- maxValue = 1844674407|3709551615
                 if highDecimal > 1844674407.0 || (highDecimal == 1844674407.0 && lowDecimal > 3709551615.0) then
-                    -- above maxValue
                     Nothing
 
                 else
@@ -884,6 +859,18 @@ fromString givenString =
                     mul (floor highDecimal) (UInt64 0 0x0254 0x000BE400)
                         |> add (floor lowDecimal)
                         |> Just
+
+        Just (Hex digits) ->
+            fromNonDecimalDigits 4 digits
+
+        Just (Octal digits) ->
+            fromNonDecimalDigits 3 digits
+
+        Just (Binary digits) ->
+            fromNonDecimalDigits 1 digits
+
+        Nothing ->
+            Nothing
 
 
 {-| Convert [`UInt64`](#UInt64) to uppercase hexadecimal `String` of 16 characters.
@@ -2204,7 +2191,112 @@ riskyFloatTo64 x =
 
 
 
--- INTERNAL - HEX
+-- INTERNAL - CHAR / STRING
+
+
+type Digits
+    = Binary (List Int)
+    | Octal (List Int)
+    | Hex (List Int)
+    | Decimal (List Int)
+
+
+charListToDigitsWithoutLeadingZeroes : (List Int -> Digits) -> (Char -> Maybe Int) -> List Char -> Maybe Digits
+charListToDigitsWithoutLeadingZeroes toDigits charToDigit chars =
+    case chars of
+        '0' :: tail ->
+            charListToDigitsWithoutLeadingZeroes toDigits charToDigit tail
+
+        noLeadingZeroes ->
+            noLeadingZeroes
+                |> List.foldl (\char accum -> Maybe.map2 (::) (charToDigit char) accum) (Just [])
+                |> Maybe.map (List.reverse >> toDigits)
+
+
+charToBinaryDigit : Char -> Maybe Int
+charToBinaryDigit char =
+    case char of
+        '0' ->
+            Just 0
+
+        '1' ->
+            Just 1
+
+        _ ->
+            Nothing
+
+
+charToDecimalDigit : Char -> Maybe Int
+charToDecimalDigit char =
+    if '0' <= char && char <= '9' then
+        Just <| Char.toCode char - Char.toCode '0'
+
+    else
+        Nothing
+
+
+charToHexDigit : Char -> Maybe Int
+charToHexDigit char =
+    if '0' <= char && char <= '9' then
+        Just <| Char.toCode char - Char.toCode '0'
+
+    else if 'a' <= char && char <= 'f' then
+        Just <| Char.toCode char - Char.toCode 'a' + 10
+
+    else if 'A' <= char && char <= 'F' then
+        Just <| Char.toCode char - Char.toCode 'A' + 10
+
+    else
+        Nothing
+
+
+charToOctalDigit : Char -> Maybe Int
+charToOctalDigit char =
+    if '0' <= char && char <= '7' then
+        Just <| Char.toCode char - Char.toCode '0'
+
+    else
+        Nothing
+
+
+{-| `bitsPerDigit` must be a factor of `48`.
+-}
+fromNonDecimalDigits : Int -> List Int -> Maybe UInt64
+fromNonDecimalDigits bitsPerDigit digits =
+    let
+        digitCount =
+            List.length digits
+    in
+    -- This check guards that `high` below doesn't go above `maxSafe`,
+    -- so it doesn't matter that 22 octal digits can overflow 64 bits slightly.
+    if digitCount > (64 + bitsPerDigit - 1) // bitsPerDigit then
+        Nothing
+
+    else
+        let
+            base =
+                Basics.toFloat <| 2 ^ bitsPerDigit
+
+            highDigitCount =
+                digitCount - (48 // bitsPerDigit)
+
+            high =
+                riskyDigitsToFloat base <| List.take highDigitCount digits
+
+            midLow =
+                riskyDigitsToFloat base <| List.drop highDigitCount digits
+
+            mid =
+                Basics.floor <| midLow / limit24
+
+            low =
+                Basics.floor midLow - mid * limit24
+        in
+        if high > max16 then
+            Nothing
+
+        else
+            Just <| UInt64 (Basics.floor high) mid low
 
 
 {-| Return 'X' for invalid argument.
@@ -2262,6 +2354,57 @@ nibbleToHex x =
 
         _ ->
             'X'
+
+
+{-| Arguments must be such that output doesn't exceed `maxSafe`.
+-}
+riskyDigitsToFloat : Float -> List Int -> Float
+riskyDigitsToFloat base digits =
+    List.foldl
+        (\digit accum ->
+            accum * base + Basics.toFloat digit
+        )
+        0.0
+        digits
+
+
+{-|
+
+  - base is detected from prefix `0x`, `0o` or `0b` and is `Decimal` if there is no prefix
+  - `Digits` contains at least one digit
+  - `Nothing` if `String` is empty or otherwise invalid
+
+-}
+stringToDigitsWithoutLeadingZeroes : String -> Maybe Digits
+stringToDigitsWithoutLeadingZeroes str =
+    case String.toList str of
+        '0' :: 'x' :: hexChars ->
+            if hexChars == [] then
+                Nothing
+
+            else
+                charListToDigitsWithoutLeadingZeroes Hex charToHexDigit hexChars
+
+        '0' :: 'o' :: octalChars ->
+            if octalChars == [] then
+                Nothing
+
+            else
+                charListToDigitsWithoutLeadingZeroes Octal charToOctalDigit octalChars
+
+        '0' :: 'b' :: binaryChars ->
+            if binaryChars == [] then
+                Nothing
+
+            else
+                charListToDigitsWithoutLeadingZeroes Binary charToBinaryDigit binaryChars
+
+        decimalChars ->
+            if decimalChars == [] then
+                Nothing
+
+            else
+                charListToDigitsWithoutLeadingZeroes Decimal charToDecimalDigit decimalChars
 
 
 
