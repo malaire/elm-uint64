@@ -213,8 +213,9 @@ twist (MersenneTwister { mt }) =
                 (\index innerMt ->
                     let
                         x =
-                            UInt64.and (get index innerMt) upperMask
-                                |> UInt64.add (UInt64.and (get (Basics.modBy nn (index + 1)) innerMt) lowerMask)
+                            UInt64.or
+                                (UInt64.and upperMask <| get index innerMt)
+                                (UInt64.and lowerMask <| get (Basics.modBy nn (index + 1)) innerMt)
 
                         xA =
                             if UInt64.getBit 0 x == 1 then
