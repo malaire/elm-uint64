@@ -3,7 +3,7 @@
 [Mersenne Twister](https://en.wikipedia.org/wiki/Mersenne_Twister)🢅
 pseudorandom number generator implemented using `UInt64`.
 
-# Using
+## Using
 
 To run tests:
 ```text
@@ -23,7 +23,8 @@ Then open generated `index.html` in browser.
 **This code has not been tested rigorously.**
 
 One test is included which compares this implementation
-against example output provided with the original C source.
+against testdata generated using original C code.
+Testdata mirrors the example output provided with the original C source.
 
 This test passes, but one test is not enough to know for sure that there are no bugs.
 
