@@ -1284,12 +1284,12 @@ sub (UInt64 highA midA lowA) (UInt64 highB midB lowB) =
 
 -}
 div : UInt64 -> UInt64 -> UInt64
-div dividend ((UInt64 divisorHigh divisorMid _) as divisor) =
+div dividend ((UInt64 divisorHigh divisorMid divisorLow) as divisor) =
     -- TODO: Initial analysis suggests that it might be possible to implement
     --       this without `divModFast`. Maybe even with a single faster algorithm.
     if divisorMid <= 0x1F && divisorHigh == 0 then
         -- divisor < 2^29
-        if divisor == zero then
+        if divisorLow == 0 && divisorMid == 0 then
             zero
 
         else
@@ -1389,10 +1389,10 @@ div dividend ((UInt64 divisorHigh divisorMid _) as divisor) =
 
 -}
 divMod : UInt64 -> UInt64 -> ( UInt64, UInt64 )
-divMod dividend ((UInt64 divisorHigh divisorMid _) as divisor) =
+divMod dividend ((UInt64 divisorHigh divisorMid divisorLow) as divisor) =
     if divisorMid <= 0x1F && divisorHigh == 0 then
         -- divisor < 2^29
-        if divisor == zero then
+        if divisorLow == 0 && divisorMid == 0 then
             ( zero, zero )
 
         else
@@ -1517,10 +1517,10 @@ divMod dividend ((UInt64 divisorHigh divisorMid _) as divisor) =
 
 -}
 mod : UInt64 -> UInt64 -> UInt64
-mod dividend ((UInt64 divisorHigh divisorMid _) as divisor) =
+mod dividend ((UInt64 divisorHigh divisorMid divisorLow) as divisor) =
     if divisorMid <= 0x1F && divisorHigh == 0 then
         -- divisor < 2^29
-        if divisor == zero then
+        if divisorLow == 0 && divisorMid == 0 then
             zero
 
         else
