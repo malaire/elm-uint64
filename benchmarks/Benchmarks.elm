@@ -21,9 +21,10 @@ main =
             -- ### DIVMOD
             -- benchmark_divMod
             -- ### DIVMOD - DIFFERENT ALGORITHMS
-            -- benchmark_divMod_53
-            -- benchmark_divMod_smallDivisor
-            -- benchmark_divMod_largeDivisor
+            -- benchmark_divMod_53_29
+            -- benchmark_divMod_53_40
+            -- benchmark_divMod_64_29
+            -- benchmark_divMod_64_40
             ]
 
 
@@ -103,12 +104,14 @@ benchmark_bitwise =
 
 
 benchmark_divMod =
-    describe "UInt64.divMod with different sizes"
-        [ benchmark "<53 bits (53-bit / 40-bit)" <|
+    describe "UInt64.divMod"
+        [ benchmark "divMod 53-bit 29-bit" <|
+            \_ -> UInt64.divMod uint64Prime53 uint64Prime29
+        , benchmark "divMod 53-bit 40-bit" <|
             \_ -> UInt64.divMod uint64Prime53 uint64Prime40
-        , benchmark "small divisor (64-bit / 29-bit)" <|
+        , benchmark "divMod 64-bit 29-bit" <|
             \_ -> UInt64.divMod uint64Prime64 uint64Prime29
-        , benchmark "large divisor (64-bit / 40-bit)" <|
+        , benchmark "divMod 64-bit 40-bit" <|
             \_ -> UInt64.divMod uint64Prime64 uint64Prime40
         ]
 
@@ -117,8 +120,21 @@ benchmark_divMod =
 -- BENCHMARK - DIVMOD - DIFFERENT ALGORITHMS
 
 
-benchmark_divMod_53 =
-    describe "divMod <53 bits (53-bit / 40-bit)"
+benchmark_divMod_53_29 =
+    describe "divMod 53-bit 29-bit"
+        [ benchmark "SafeInt.Unchecked.divMod" <|
+            \_ -> Unchecked.divMod floatPrime53 floatPrime29
+        , benchmark "UInt64.divMod" <|
+            \_ -> UInt64.divMod uint64Prime53 uint64Prime29
+        , benchmark "UInt64.divModFast" <|
+            \_ -> UInt64.divModFast uint64Prime53 uint64Prime29
+        , benchmark "UInt64.divModSlow" <|
+            \_ -> UInt64.divModSlow uint64Prime53 uint64Prime29
+        ]
+
+
+benchmark_divMod_53_40 =
+    describe "divMod 53-bit 40-bit"
         [ benchmark "SafeInt.Unchecked.divMod" <|
             \_ -> Unchecked.divMod floatPrime53 floatPrime40
         , benchmark "UInt64.divMod" <|
@@ -130,8 +146,8 @@ benchmark_divMod_53 =
         ]
 
 
-benchmark_divMod_smallDivisor =
-    describe "divMod small divisor (64-bit / 29-bit)"
+benchmark_divMod_64_29 =
+    describe "divMod 64-bit 29-bit"
         [ benchmark "UInt64.divMod" <|
             \_ -> UInt64.divMod uint64Prime64 uint64Prime29
         , benchmark "UInt64.divModFast" <|
@@ -141,8 +157,8 @@ benchmark_divMod_smallDivisor =
         ]
 
 
-benchmark_divMod_largeDivisor =
-    describe "divMod large divisor (64-bit / 40-bit)"
+benchmark_divMod_64_40 =
+    describe "divMod 64-bit 40-bit"
         [ benchmark "UInt64.divMod" <|
             \_ -> UInt64.divMod uint64Prime64 uint64Prime40
         , benchmark "UInt64.divModFast" <|
