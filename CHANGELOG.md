@@ -3,7 +3,7 @@
 ## [Unreleased]
 ### Added
 - `fromString`
-- `div`
+- `div`, `mod`
 - Mersenne Twister example
 
 ## [1.0.0] - 2020-06-20

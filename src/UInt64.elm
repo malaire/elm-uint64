@@ -7,7 +7,7 @@ module UInt64 exposing
     , fromInt32s, toInt32s, fromInt24s, toInt24s, fromDecimal12s, fromBigEndianBytes, toBigEndianBytes
     , fromString, toString, toHexString
     , add, sub, mul, pow, increment, decrement
-    , div, divMod
+    , div, mod, divMod
     , and, or, xor, complement, shiftLeftBy, shiftRightZfBy, rotateLeftBy, rotateRightBy, getBit, setBit
     , compare, isSafe
     , divModFast, divModSlow
@@ -37,7 +37,7 @@ module UInt64 exposing
       - [`add`](#add), [`sub`](#sub), [`mul`](#mul), [`pow`](#pow)
       - [`increment`](#increment), [`decrement`](#decrement)
   - [Division](#division)
-      - [`div`](#div), [`divMod`](#divMod)
+      - [`div`](#div), [`mod`](#mod), [`divMod`](#divMod)
   - [Bitwise](#bitwise)
       - [`and`](#and), [`or`](#or), [`xor`](#xor), [`complement`](#complement)
       - [`shiftLeftBy`](#shiftLeftBy), [`shiftRightZfBy`](#shiftRightZfBy),
@@ -122,7 +122,7 @@ up to [`maxSafe`](#maxSafe), but this could change in the future.
 **Note:** I would prefer to cause runtime exception on division-by-zero,
 but that can't be tested, so I'll settle for returning [`zero`](#zero) which can be tested.
 
-@docs div, divMod
+@docs div, mod, divMod
 
 
 # Bitwise
@@ -1289,11 +1289,16 @@ sub (UInt64 highA midA lowA) (UInt64 highB midB lowB) =
   - If divisor is [`zero`](#zero), return [`zero`](#zero).
 
 
-## Example
+## Examples
 
     UInt64.div (UInt64.fromInt 1234) (UInt64.fromInt 100)
         |> UInt64.toFloat
         --> 12
+
+    -- 0xFFFFFFFFFFFFFFFF / 1e10
+    UInt64.div UInt64.maxValue (UInt64.floor 1e10)
+        |> UInt64.toFloat
+        --> 1844674407
 
 -}
 div : UInt64 -> UInt64 -> UInt64
@@ -1384,16 +1389,16 @@ div dividend ((UInt64 divisorHigh divisorMid _) as divisor) =
 
 {-| Integer division with modulo.
 
+`divMod a b` is same as `( div a b, mod a b )` except faster.
+
   - If divisor is [`zero`](#zero), return `( zero, zero )`.
 
 
-## Example
+## Examples
 
-    UInt64.divMod
-        (UInt64.fromInt 123456)
-        (UInt64.fromInt 1000)
+    UInt64.divMod (UInt64.fromInt 1234) (UInt64.fromInt 100)
         |> Tuple.mapBoth UInt64.toFloat UInt64.toFloat
-        --> ( 123, 456 )
+        --> ( 12, 34 )
 
     -- ( 0xFFFFFFFFFFFFFFFF / 1e10, 0xFFFFFFFFFFFFFFFF % 1e10 )
     UInt64.divMod UInt64.maxValue (UInt64.floor 1e10)
@@ -1510,6 +1515,112 @@ divMod dividend ((UInt64 divisorHigh divisorMid _) as divisor) =
                 -- IMPOSSIBLE: I believe this case is impossible to reach
                 -- But in case the impossible happens, use the slow&simple algorithm.
                 divModSlow dividend divisor
+
+
+{-| Remainder after [`div`](#div).
+
+  - If divisor is [`zero`](#zero), return [`zero`](#zero).
+
+
+## Examples
+
+    UInt64.mod (UInt64.fromInt 1234) (UInt64.fromInt 100)
+        |> UInt64.toFloat
+        --> 34
+
+    -- 0xFFFFFFFFFFFFFFFF % 1e10
+    UInt64.mod UInt64.maxValue (UInt64.floor 1e10)
+        |> UInt64.toFloat
+        --> 3709551615
+
+-}
+mod : UInt64 -> UInt64 -> UInt64
+mod dividend ((UInt64 divisorHigh divisorMid _) as divisor) =
+    if divisorMid <= 0x1F && divisorHigh == 0 then
+        -- divisor < 2^29
+        if divisor == zero then
+            zero
+
+        else
+            -- `divisor` can be at most 29 bits
+            -- Limiting factor is that `highMidCarry * limit24 + dividendLow` <= `2 ^ 53 - 1`.
+            let
+                (UInt64 dividendHigh dividendMid dividendLow) =
+                    dividend
+
+                dividendHighMid =
+                    dividendHigh * limit24 + dividendMid
+
+                divisorFloat =
+                    toFloat divisor
+
+                quotHighMid =
+                    Basics.floor <| Basics.toFloat dividendHighMid / divisorFloat
+
+                highMidCarry =
+                    Basics.toFloat dividendHighMid - divisorFloat * Basics.toFloat quotHighMid
+
+                highMidCarryWithLow =
+                    highMidCarry * limit24 + Basics.toFloat dividendLow
+
+                quotLow =
+                    Basics.floor <| highMidCarryWithLow / divisorFloat
+
+                modMidLow =
+                    highMidCarryWithLow - divisorFloat * Basics.toFloat quotLow
+
+                modMid =
+                    Basics.floor <| modMidLow / limit24
+
+                modLow =
+                    Basics.floor modMidLow - modMid * limit24
+            in
+            UInt64 0 modMid modLow
+
+    else if isSafe dividend then
+        -- dividend < 2^53 && divisor >= 2^29
+        --
+        -- !!! divisor can be outside safe range !!!
+        -- --> quotInt  = 0
+        -- --> modFloat = dividendFloat
+        -- --> algorithm works correctly and returns `dividend`
+        let
+            dividendFloat =
+                toFloat dividend
+
+            divisorFloat =
+                toFloat divisor
+
+            quotInt =
+                Basics.floor <| dividendFloat / divisorFloat
+
+            modFloat =
+                dividendFloat - divisorFloat * Basics.toFloat quotInt
+
+            modHigh =
+                Basics.floor <| modFloat / limit48
+
+            modMidLow =
+                modFloat - limit48 * Basics.toFloat modHigh
+
+            modMid =
+                Basics.floor <| modMidLow / limit24
+
+            modLow =
+                modMidLow - limit24 * Basics.toFloat modMid
+        in
+        UInt64 modHigh modMid (Basics.floor modLow)
+
+    else
+        -- dividend >= 2^53 && divisor >= 2^29
+        case divModFast dividend divisor of
+            Ok ( _, mod_ ) ->
+                mod_
+
+            Err _ ->
+                -- IMPOSSIBLE: I believe this case is impossible to reach
+                -- But in case the impossible happens, use the slow&simple algorithm.
+                Tuple.second <| divModSlow dividend divisor
 
 
 

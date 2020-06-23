@@ -87,12 +87,13 @@ all =
         , test_sub_mul
 
         -- DIVISION
-        , test_div_divMod
+        , test_div_mod
         , test_divMod
         , test_divMod_individual
         , test_divModFast
         , test_divModFast_individual
         , test_divModSlow
+        , test_mod_individual
 
         -- BITWISE
         , test_and_or_xor_complement
@@ -1096,18 +1097,10 @@ testsForDivMod divModFn =
 -- TESTS - DIVISION
 
 
-test_div_divMod =
-    describe "div & divMod"
-        -- FULL RANGE FUZZ: div  ; these two fuzz together
-        [ fuzz2 uint64 uint64 "div == divMod >> Tuple.first" <|
-            \dividend divisor ->
-                UInt64.div dividend divisor
-                    |> Expect.equal (UInt64.divMod dividend divisor |> Tuple.first)
-        , fuzz uint64 "div == divMod >> Tuple.first ; dividend = maxValue" <|
-            \divisor ->
-                UInt64.div UInt64.maxValue divisor
-                    |> Expect.equal (UInt64.divMod UInt64.maxValue divisor |> Tuple.first)
-        ]
+test_div_mod =
+    -- FULL RANGE FUZZ: div
+    -- FULL RANGE FUZZ: mod
+    describe "div & mod" <| testsForDivMod (\a b -> Ok ( UInt64.div a b, UInt64.mod a b ))
 
 
 test_divMod =
@@ -1117,7 +1110,7 @@ test_divMod =
 
 test_divMod_individual =
     describe "divMod - individual"
-        [ test "divMod max 30-bit ; fails with `divisor < 2^29` algorithm" <|
+        [ test "divMod maxValue 30-bit ; fails with `divisor < 2^29` algorithm" <|
             \_ ->
                 UInt64.divMod UInt64.maxValue (UInt64.fromInt24s 0 0x20 0x004CB631)
                     |> Expect.equal ( UInt64.fromInt24s 0 2028 16777197, UInt64.fromInt24s 0 8 11634082 )
@@ -1200,6 +1193,19 @@ test_divModFast_individual =
 test_divModSlow =
     -- FULL RANGE FUZZ: divModSlow
     describe "divModSlow" <| testsForDivMod (\a b -> UInt64.divModSlow a b |> Ok)
+
+
+test_mod_individual =
+    describe "mod"
+        [ test "mod maxValue 30-bit ; fails with `divisor < 2^29` algorithm" <|
+            \_ ->
+                UInt64.mod UInt64.maxValue (UInt64.fromInt24s 0 0x20 0x004CB631)
+                    |> Expect.equal (UInt64.fromInt24s 0 8 11634082)
+        , test "mod 54-bit 49-bit ; fails with `dividend < 2^53 && divisor >= 2^29` algorithm" <|
+            \_ ->
+                UInt64.mod (UInt64.fromInt24s 0x20 0 1) (UInt64.fromInt24s 1 0 0)
+                    |> Expect.equal UInt64.one
+        ]
 
 
 
