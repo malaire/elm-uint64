@@ -1071,6 +1071,9 @@ testsForDivMod divModFn =
                                 if div_ == UInt64.zero && mod_ == UInt64.zero then
                                     Ok UInt64.zero
 
+                                else if UInt64.compare div_ dividend == GT then
+                                    Err "div_ > dividend @ Tests.testsForDivMod"
+
                                 else if UInt64.compare mod_ divisor == LT then
                                     Ok <| UInt64.add (UInt64.mul div_ divisor) mod_
 
