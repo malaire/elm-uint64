@@ -1356,52 +1356,51 @@ divMod dividend ((UInt64 divisorHigh divisorMid _) as divisor) =
 
     else if isSafe dividend then
         -- dividend < 2^53 && divisor >= 2^29
-        if isSafe divisor then
-            -- dividend < 2^53 && 2^29 <= divisor < 2^53
-            let
-                dividendFloat =
-                    toFloat dividend
+        --
+        -- !!! divisor can be outside safe range !!!
+        -- --> quotInt  = 0
+        -- --> modFloat = dividendFloat
+        -- --> algorithm works correctly and returns ( zero, dividend )
+        let
+            dividendFloat =
+                toFloat dividend
 
-                divisorFloat =
-                    toFloat divisor
+            divisorFloat =
+                toFloat divisor
 
-                quotInt =
-                    Basics.floor <| dividendFloat / divisorFloat
+            quotInt =
+                Basics.floor <| dividendFloat / divisorFloat
 
-                quotHigh =
-                    Basics.floor <| Basics.toFloat quotInt / limit48
+            quotHigh =
+                Basics.floor <| Basics.toFloat quotInt / limit48
 
-                quotMidLow =
-                    quotInt - limit48 * quotHigh
+            quotMidLow =
+                quotInt - limit48 * quotHigh
 
-                quotMid =
-                    Basics.floor <| Basics.toFloat quotMidLow / limit24
+            quotMid =
+                Basics.floor <| Basics.toFloat quotMidLow / limit24
 
-                quotLow =
-                    quotMidLow - limit24 * quotMid
+            quotLow =
+                quotMidLow - limit24 * quotMid
 
-                modFloat =
-                    dividendFloat - divisorFloat * Basics.toFloat quotInt
+            modFloat =
+                dividendFloat - divisorFloat * Basics.toFloat quotInt
 
-                modHigh =
-                    Basics.floor <| modFloat / limit48
+            modHigh =
+                Basics.floor <| modFloat / limit48
 
-                modMidLow =
-                    modFloat - limit48 * Basics.toFloat modHigh
+            modMidLow =
+                modFloat - limit48 * Basics.toFloat modHigh
 
-                modMid =
-                    Basics.floor <| modMidLow / limit24
+            modMid =
+                Basics.floor <| modMidLow / limit24
 
-                modLow =
-                    modMidLow - limit24 * Basics.toFloat modMid
-            in
-            ( UInt64 quotHigh quotMid quotLow
-            , UInt64 modHigh modMid (Basics.floor modLow)
-            )
-
-        else
-            -- dividend < 2^53 && divisor >= 2^53
-            ( zero, dividend )
+            modLow =
+                modMidLow - limit24 * Basics.toFloat modMid
+        in
+        ( UInt64 quotHigh quotMid quotLow
+        , UInt64 modHigh modMid (Basics.floor modLow)
+        )
 
     else
         -- dividend >= 2^53 && divisor >= 2^29
