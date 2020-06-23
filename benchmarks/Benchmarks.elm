@@ -33,12 +33,12 @@ main =
 
 benchmark_math =
     describe "math"
-        [ benchmark "add 64-bit 50-bit" <|
-            \_ -> UInt64.add uint64Prime64 uint64Prime50
-        , benchmark "sub 64-bit 50-bit" <|
-            \_ -> UInt64.sub uint64Prime64 uint64Prime50
-        , benchmark "mul 64-bit 50-bit" <|
-            \_ -> UInt64.mul uint64Prime64 uint64Prime50
+        [ benchmark "add 64-bit 53-bit" <|
+            \_ -> UInt64.add uint64Prime64 uint64Prime53
+        , benchmark "sub 64-bit 53-bit" <|
+            \_ -> UInt64.sub uint64Prime64 uint64Prime53
+        , benchmark "mul 64-bit 53-bit" <|
+            \_ -> UInt64.mul uint64Prime64 uint64Prime53
         ]
 
 
@@ -104,8 +104,8 @@ benchmark_bitwise =
 
 benchmark_divMod =
     describe "UInt64.divMod with different sizes"
-        [ benchmark "<53 bits (50-bit / 40-bit)" <|
-            \_ -> UInt64.divMod uint64Prime50 uint64Prime40
+        [ benchmark "<53 bits (53-bit / 40-bit)" <|
+            \_ -> UInt64.divMod uint64Prime53 uint64Prime40
         , benchmark "small divisor (64-bit / 29-bit)" <|
             \_ -> UInt64.divMod uint64Prime64 uint64Prime29
         , benchmark "large divisor (64-bit / 40-bit)" <|
@@ -118,15 +118,15 @@ benchmark_divMod =
 
 
 benchmark_divMod_53 =
-    describe "divMod <53 bits (50-bit / 40-bit)"
+    describe "divMod <53 bits (53-bit / 40-bit)"
         [ benchmark "SafeInt.Unchecked.divMod" <|
-            \_ -> Unchecked.divMod floatPrime50 floatPrime40
+            \_ -> Unchecked.divMod floatPrime53 floatPrime40
         , benchmark "UInt64.divMod" <|
-            \_ -> UInt64.divMod uint64Prime50 uint64Prime40
+            \_ -> UInt64.divMod uint64Prime53 uint64Prime40
         , benchmark "UInt64.divModFast" <|
-            \_ -> UInt64.divModFast uint64Prime50 uint64Prime40
+            \_ -> UInt64.divModFast uint64Prime53 uint64Prime40
         , benchmark "UInt64.divModSlow" <|
-            \_ -> UInt64.divModSlow uint64Prime50 uint64Prime40
+            \_ -> UInt64.divModSlow uint64Prime53 uint64Prime40
         ]
 
 
@@ -202,16 +202,16 @@ uint64Prime40 =
     UInt64.fromInt24s 0 0xFFFF 0x00FFFFA9
 
 
-{-| 50-bit prime `2^50 - 27 = 1125899906842597 = 0x3FFFFFFFFFFE5`
+{-| 53-bit prime `2^53 - 111 = 9007199254740881 = 0x1FFFFFFFFFFF91`
 -}
-floatPrime50 : Float
-floatPrime50 =
-    1125899906842597.0
+floatPrime53 : Float
+floatPrime53 =
+    9007199254740881.0
 
 
-uint64Prime50 : UInt64
-uint64Prime50 =
-    UInt64.fromInt24s 0x03 0x00FFFFFF 0x00FFFFE5
+uint64Prime53 : UInt64
+uint64Prime53 =
+    UInt64.fromInt24s 0x1F 0x00FFFFFF 0x00FFFF91
 
 
 {-| 64-bit prime `2^64 - 59 = 18446744073709551557 = 0xFFFFFFFFFFFFFFC5`
