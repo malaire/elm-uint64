@@ -87,6 +87,7 @@ all =
         , test_sub_mul
 
         -- DIVISION
+        , test_div_divMod
         , test_divMod
         , test_divMod_individual
         , test_divModFast
@@ -1093,6 +1094,20 @@ testsForDivMod divModFn =
 
 
 -- TESTS - DIVISION
+
+
+test_div_divMod =
+    describe "div & divMod"
+        -- FULL RANGE FUZZ: div  ; these two fuzz together
+        [ fuzz2 uint64 uint64 "div == divMod >> Tuple.first" <|
+            \dividend divisor ->
+                UInt64.div dividend divisor
+                    |> Expect.equal (UInt64.divMod dividend divisor |> Tuple.first)
+        , fuzz uint64 "div == divMod >> Tuple.first ; dividend = maxValue" <|
+            \divisor ->
+                UInt64.div UInt64.maxValue divisor
+                    |> Expect.equal (UInt64.divMod UInt64.maxValue divisor |> Tuple.first)
+        ]
 
 
 test_divMod =

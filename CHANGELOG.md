@@ -3,6 +3,7 @@
 ## [Unreleased]
 ### Added
 - `fromString`
+- `div`
 - Mersenne Twister example
 
 ## [1.0.0] - 2020-06-20
