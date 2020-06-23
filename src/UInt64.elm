@@ -833,47 +833,29 @@ so I can't make this function robust against invalid Unicode.
 -}
 fromString : String -> Maybe UInt64
 fromString str =
-    case stringToDigitsWithoutLeadingZeroes str of
-        Just (Decimal digits) ->
-            let
-                digitCount =
-                    List.length digits
-
-                highDigitCount =
-                    digitCount - 10
-            in
-            if digitCount > 20 then
-                Nothing
-
-            else
-                let
-                    lowDecimal =
-                        riskyDigitsToFloat 10.0 <| List.drop highDigitCount digits
-
-                    highDecimal =
-                        riskyDigitsToFloat 10.0 <| List.take highDigitCount digits
-                in
-                -- maxValue = 1844674407|3709551615
-                if highDecimal > 1844674407.0 || (highDecimal == 1844674407.0 && lowDecimal > 3709551615.0) then
+    let
+        fromChars charToDigit fromDigits chars =
+            case chars of
+                [] ->
                     Nothing
 
-                else
-                    -- highDecimal * 1e10 + lowDecimal
-                    mul (floor highDecimal) (UInt64 0 0x0254 0x000BE400)
-                        |> add (floor lowDecimal)
-                        |> Just
+                nonEmptyChars ->
+                    nonEmptyChars
+                        |> charListToDigitsWithoutLeadingZeroes charToDigit
+                        |> Maybe.andThen fromDigits
+    in
+    case String.toList str of
+        '0' :: 'x' :: chars ->
+            fromChars charToHexDigit (fromNonDecimalDigits 4) chars
 
-        Just (Hex digits) ->
-            fromNonDecimalDigits 4 digits
+        '0' :: 'o' :: chars ->
+            fromChars charToOctalDigit (fromNonDecimalDigits 3) chars
 
-        Just (Octal digits) ->
-            fromNonDecimalDigits 3 digits
+        '0' :: 'b' :: chars ->
+            fromChars charToBinaryDigit (fromNonDecimalDigits 1) chars
 
-        Just (Binary digits) ->
-            fromNonDecimalDigits 1 digits
-
-        Nothing ->
-            Nothing
+        chars ->
+            fromChars charToDecimalDigit fromDecimalDigits chars
 
 
 {-| Convert [`UInt64`](#UInt64) to uppercase hexadecimal `String` of 16 characters.
@@ -2382,26 +2364,26 @@ riskyFloatTo64 x =
 
 
 
--- INTERNAL - CHAR / STRING
+-- INTERNAL - CHAR / DIGIT
 
 
-type Digits
-    = Binary (List Int)
-    | Octal (List Int)
-    | Hex (List Int)
-    | Decimal (List Int)
+{-| Convert chars to digits with given function, ignoring leading zeroes.
 
+  - Return `Just []` if `chars` is empty or has only zeroes.
+  - Return `Nothing` if `charToDigit` returns `Nothing` for any char of `chars`.
 
-charListToDigitsWithoutLeadingZeroes : (List Int -> Digits) -> (Char -> Maybe Int) -> List Char -> Maybe Digits
-charListToDigitsWithoutLeadingZeroes toDigits charToDigit chars =
+-}
+charListToDigitsWithoutLeadingZeroes : (Char -> Maybe Int) -> List Char -> Maybe (List Int)
+charListToDigitsWithoutLeadingZeroes charToDigit chars =
     case chars of
         '0' :: tail ->
-            charListToDigitsWithoutLeadingZeroes toDigits charToDigit tail
+            charListToDigitsWithoutLeadingZeroes charToDigit tail
 
         noLeadingZeroes ->
-            noLeadingZeroes
-                |> List.foldl (\char accum -> Maybe.map2 (::) (charToDigit char) accum) (Just [])
-                |> Maybe.map (List.reverse >> toDigits)
+            List.foldr
+                (\char digits -> Maybe.map2 (::) (charToDigit char) digits)
+                (Just [])
+                noLeadingZeroes
 
 
 charToBinaryDigit : Char -> Maybe Int
@@ -2450,7 +2432,51 @@ charToOctalDigit char =
         Nothing
 
 
-{-| `bitsPerDigit` must be a factor of `48`.
+{-| Convert list of decimal digits to `UInt64`.
+
+  - Each digit must be `0 <= digit <= 9`.
+  - Return `Just zero` for empty list.
+  - Return `Nothing` on overflow.
+
+-}
+fromDecimalDigits : List Int -> Maybe UInt64
+fromDecimalDigits digits =
+    let
+        digitCount =
+            List.length digits
+
+        highDigitCount =
+            digitCount - 10
+    in
+    if digitCount > 20 then
+        Nothing
+
+    else
+        let
+            lowDecimal =
+                riskyDigitsToFloat 10.0 <| List.drop highDigitCount digits
+
+            highDecimal =
+                riskyDigitsToFloat 10.0 <| List.take highDigitCount digits
+        in
+        -- maxValue = 1844674407|3709551615
+        if highDecimal > 1844674407.0 || (highDecimal == 1844674407.0 && lowDecimal > 3709551615.0) then
+            Nothing
+
+        else
+            -- highDecimal * 1e10 + lowDecimal
+            mul (floor highDecimal) (UInt64 0 0x0254 0x000BE400)
+                |> add (floor lowDecimal)
+                |> Just
+
+
+{-| Convert list of digits to `UInt64`.
+
+  - Each digit must be `0 <= digit <= 2 ^ bitsPerDigit - 1`.
+  - `bitsPerDigit` must be a factor of `48`.
+  - Return `Just zero` for empty list.
+  - Return `Nothing` on overflow.
+
 -}
 fromNonDecimalDigits : Int -> List Int -> Maybe UInt64
 fromNonDecimalDigits bitsPerDigit digits =
@@ -2557,45 +2583,6 @@ riskyDigitsToFloat base digits =
         )
         0.0
         digits
-
-
-{-|
-
-  - base is detected from prefix `0x`, `0o` or `0b` and is `Decimal` if there is no prefix
-  - `Digits` contains at least one digit
-  - `Nothing` if `String` is empty or otherwise invalid
-
--}
-stringToDigitsWithoutLeadingZeroes : String -> Maybe Digits
-stringToDigitsWithoutLeadingZeroes str =
-    case String.toList str of
-        '0' :: 'x' :: hexChars ->
-            if hexChars == [] then
-                Nothing
-
-            else
-                charListToDigitsWithoutLeadingZeroes Hex charToHexDigit hexChars
-
-        '0' :: 'o' :: octalChars ->
-            if octalChars == [] then
-                Nothing
-
-            else
-                charListToDigitsWithoutLeadingZeroes Octal charToOctalDigit octalChars
-
-        '0' :: 'b' :: binaryChars ->
-            if binaryChars == [] then
-                Nothing
-
-            else
-                charListToDigitsWithoutLeadingZeroes Binary charToBinaryDigit binaryChars
-
-        decimalChars ->
-            if decimalChars == [] then
-                Nothing
-
-            else
-                charListToDigitsWithoutLeadingZeroes Decimal charToDecimalDigit decimalChars
 
 
 
