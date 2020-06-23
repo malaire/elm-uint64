@@ -1102,11 +1102,14 @@ test_divMod =
 
 test_divMod_individual =
     describe "divMod - individual"
-        [ test "smallest found divisor that fails with `divisor < 2^29` algorithm ; has 30-bit divisor" <|
+        [ test "divMod max 30-bit ; fails with `divisor < 2^29` algorithm" <|
             \_ ->
                 UInt64.divMod UInt64.maxValue (UInt64.fromInt24s 0 0x20 0x004CB631)
-                    |> Expect.equal
-                        ( UInt64.fromInt24s 0 2028 16777197, UInt64.fromInt24s 0 8 11634082 )
+                    |> Expect.equal ( UInt64.fromInt24s 0 2028 16777197, UInt64.fromInt24s 0 8 11634082 )
+        , test "divMod 54-bit 49-bit ; fails with `dividend < 2^53 && divisor >= 2^29` algorithm" <|
+            \_ ->
+                UInt64.divMod (UInt64.fromInt24s 0x20 0 1) (UInt64.fromInt24s 1 0 0)
+                    |> Expect.equal ( UInt64.fromInt24s 0 0 0x20, UInt64.one )
         ]
 
 
