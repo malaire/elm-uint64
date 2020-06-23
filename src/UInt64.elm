@@ -2280,26 +2280,15 @@ type alias UInt24 =
     Int
 
 
-{-| unsigned integer within safe integer range
--}
-type alias UInt53 =
-    Int
-
-
 {-| Internal type that uses 24 bits also for high-part.
 
-  - So far I've only needed up to 65 bits, but implementing 65 or 72 is equally fast,
-    and 72 is simpler (no need for UInt17, sub17, ...), so I chose that.
+So far I've only needed up to 65 bits,
+but implementing 65 or 72 is equally fast,
+and 72 is actually a bit simpler.
 
 -}
 type UInt72
     = UInt72 UInt24 UInt24 UInt24
-
-
-{-| `Float` containing an unsigned integer within safe integer range
--}
-type alias UFloat53 =
-    Float
 
 
 
@@ -2374,7 +2363,7 @@ floorAnyPositiveFloat x =
 
 {-| Float must be unsigned integer within safe range.
 -}
-riskyFloatTo64 : UFloat53 -> UInt64
+riskyFloatTo64 : Float -> UInt64
 riskyFloatTo64 x =
     let
         highMid =
@@ -2607,38 +2596,6 @@ stringToDigitsWithoutLeadingZeroes str =
 
             else
                 charListToDigitsWithoutLeadingZeroes Decimal charToDecimalDigit decimalChars
-
-
-
--- INTERNAL - BASE MATH
-
-
-{-| Split into low 24 bits and the rest.
--}
-splitFloatToLow24AndRest : UFloat53 -> ( UInt24, UInt53 )
-splitFloatToLow24AndRest x =
-    let
-        rest =
-            Basics.floor <| x / limit24
-
-        low24 =
-            Basics.floor x - rest * limit24
-    in
-    ( low24, rest )
-
-
-{-| Split into low 24 bits and the rest.
--}
-splitIntToLow24AndRest : UInt53 -> ( UInt24, UInt53 )
-splitIntToLow24AndRest x =
-    let
-        rest =
-            Basics.floor <| Basics.toFloat x / limit24
-
-        low24 =
-            x - rest * limit24
-    in
-    ( low24, rest )
 
 
 
