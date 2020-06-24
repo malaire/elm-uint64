@@ -108,6 +108,8 @@ all =
         , test_compare
 
         -- CHECK
+        , test_isEven
+        , test_isOdd
         , test_isSafe
         , test_isZero
 
@@ -1431,6 +1433,22 @@ test_compare =
 
 
 -- TESTS - CHECK
+
+
+test_isEven =
+    describe "isEven"
+        [ -- FULL RANGE FUZZ: isEven
+          fuzz uint64 "isEven == getBit 0 >> (==) 0" <|
+            \a -> UInt64.isEven a |> Expect.equal (UInt64.getBit 0 a == 0)
+        ]
+
+
+test_isOdd =
+    describe "isOdd"
+        [ -- FULL RANGE FUZZ: isOdd
+          fuzz uint64 "isOdd == getBit 0 >> (==) 1" <|
+            \a -> UInt64.isOdd a |> Expect.equal (UInt64.getBit 0 a == 1)
+        ]
 
 
 test_isSafe =

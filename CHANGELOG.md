@@ -4,7 +4,7 @@
 ### Added
 - `fromString`
 - `div`, `mod`
-- `isZero`
+- `isZero`, `isEven`, `isOdd`
 - Mersenne Twister example
 
 ## [1.0.0] - 2020-06-20

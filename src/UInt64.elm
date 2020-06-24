@@ -10,7 +10,7 @@ module UInt64 exposing
     , div, mod, divMod
     , and, or, xor, complement, shiftLeftBy, shiftRightZfBy, rotateLeftBy, rotateRightBy, getBit, setBit
     , compare
-    , isSafe, isZero
+    , isSafe, isZero, isEven, isOdd
     , divModFast, divModSlow
     )
 
@@ -47,7 +47,7 @@ module UInt64 exposing
   - [Comparison](#comparison)
       - [`compare`](#compare)
   - [Check](#check)
-      - [`isSafe`](#isSafe), [`isZero`](#isZero)
+      - [`isSafe`](#isSafe), [`isZero`](#isZero), [`isEven`](#isEven), [`isOdd`](#isOdd)
   - [Extra](#extra)
       - [`divModFast`](#divModFast), [`divModSlow`](#divModSlow)
 
@@ -139,7 +139,7 @@ but that can't be tested, so I'll settle for returning [`zero`](#zero) which can
 
 # Check
 
-@docs isSafe, isZero
+@docs isSafe, isZero, isEven, isOdd
 
 
 # Extra
@@ -2217,6 +2217,24 @@ compare (UInt64 highA midA lowA) (UInt64 highB midB lowB) =
 
         highNotEq ->
             highNotEq
+
+
+
+-- CHECK
+
+
+{-| Return `True` if argument is even.
+-}
+isEven : UInt64 -> Bool
+isEven (UInt64 _ _ low) =
+    Bitwise.and 0x01 low == 0
+
+
+{-| Return `True` if argument is odd.
+-}
+isOdd : UInt64 -> Bool
+isOdd (UInt64 _ _ low) =
+    Bitwise.and 0x01 low == 1
 
 
 {-| Return `True` if argument is safe integer.
