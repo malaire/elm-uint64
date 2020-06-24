@@ -2423,35 +2423,143 @@ charToBinaryDigit char =
 
 charToDecimalDigit : Char -> Maybe Int
 charToDecimalDigit char =
-    if '0' <= char && char <= '9' then
-        Just <| Char.toCode char - Char.toCode '0'
+    case char of
+        '0' ->
+            Just 0
 
-    else
-        Nothing
+        '1' ->
+            Just 1
+
+        '2' ->
+            Just 2
+
+        '3' ->
+            Just 3
+
+        '4' ->
+            Just 4
+
+        '5' ->
+            Just 5
+
+        '6' ->
+            Just 6
+
+        '7' ->
+            Just 7
+
+        '8' ->
+            Just 8
+
+        '9' ->
+            Just 9
+
+        _ ->
+            Nothing
 
 
 charToHexDigit : Char -> Maybe Int
 charToHexDigit char =
-    if '0' <= char && char <= '9' then
-        Just <| Char.toCode char - Char.toCode '0'
+    case char of
+        '0' ->
+            Just 0
 
-    else if 'a' <= char && char <= 'f' then
-        Just <| Char.toCode char - Char.toCode 'a' + 10
+        '1' ->
+            Just 1
 
-    else if 'A' <= char && char <= 'F' then
-        Just <| Char.toCode char - Char.toCode 'A' + 10
+        '2' ->
+            Just 2
 
-    else
-        Nothing
+        '3' ->
+            Just 3
+
+        '4' ->
+            Just 4
+
+        '5' ->
+            Just 5
+
+        '6' ->
+            Just 6
+
+        '7' ->
+            Just 7
+
+        '8' ->
+            Just 8
+
+        '9' ->
+            Just 9
+
+        'A' ->
+            Just 10
+
+        'B' ->
+            Just 11
+
+        'C' ->
+            Just 12
+
+        'D' ->
+            Just 13
+
+        'E' ->
+            Just 14
+
+        'F' ->
+            Just 15
+
+        'a' ->
+            Just 10
+
+        'b' ->
+            Just 11
+
+        'c' ->
+            Just 12
+
+        'd' ->
+            Just 13
+
+        'e' ->
+            Just 14
+
+        'f' ->
+            Just 15
+
+        _ ->
+            Nothing
 
 
 charToOctalDigit : Char -> Maybe Int
 charToOctalDigit char =
-    if '0' <= char && char <= '7' then
-        Just <| Char.toCode char - Char.toCode '0'
+    case char of
+        '0' ->
+            Just 0
 
-    else
-        Nothing
+        '1' ->
+            Just 1
+
+        '2' ->
+            Just 2
+
+        '3' ->
+            Just 3
+
+        '4' ->
+            Just 4
+
+        '5' ->
+            Just 5
+
+        '6' ->
+            Just 6
+
+        '7' ->
+            Just 7
+
+        _ ->
+            Nothing
 
 
 {-| Convert list of decimal digits to `UInt64`.
@@ -2476,10 +2584,10 @@ fromDecimalDigits digits =
     else
         let
             lowDecimal =
-                riskyDigitsToFloat 10.0 <| List.drop highDigitCount digits
+                riskyDigitsToFloat 10.0 0.0 <| List.drop highDigitCount digits
 
             highDecimal =
-                riskyDigitsToFloat 10.0 <| List.take highDigitCount digits
+                riskyDigitsToFloat 10.0 0.0 <| List.take highDigitCount digits
         in
         -- maxValue = 1844674407|3709551615
         if highDecimal > 1844674407.0 || (highDecimal == 1844674407.0 && lowDecimal > 3709551615.0) then
@@ -2520,10 +2628,10 @@ fromNonDecimalDigits bitsPerDigit digits =
                 digitCount - (48 // bitsPerDigit)
 
             high =
-                riskyDigitsToFloat base <| List.take highDigitCount digits
+                riskyDigitsToFloat base 0.0 <| List.take highDigitCount digits
 
             midLow =
-                riskyDigitsToFloat base <| List.drop highDigitCount digits
+                riskyDigitsToFloat base 0.0 <| List.drop highDigitCount digits
 
             mid =
                 Basics.floor <| midLow / limit24
@@ -2596,15 +2704,18 @@ nibbleToHex x =
 
 
 {-| Arguments must be such that output doesn't exceed `maxSafe`.
+
+For initial call `value` is `0.0`.
+
 -}
-riskyDigitsToFloat : Float -> List Int -> Float
-riskyDigitsToFloat base digits =
-    List.foldl
-        (\digit accum ->
-            accum * base + Basics.toFloat digit
-        )
-        0.0
-        digits
+riskyDigitsToFloat : Float -> Float -> List Int -> Float
+riskyDigitsToFloat base value digits =
+    case digits of
+        head :: tail ->
+            riskyDigitsToFloat base (value * base + Basics.toFloat head) tail
+
+        [] ->
+            value
 
 
 

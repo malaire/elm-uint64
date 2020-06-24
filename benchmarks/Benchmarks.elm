@@ -10,7 +10,9 @@ main : BenchmarkProgram
 main =
     program <|
         describe "All"
-            [ -- ### MATH
+            [ -- ### CONVERSION
+              -- benchmark_fromString
+              -- ### MATH
               -- benchmark_math
               -- benchmark_pow_tiny
               -- benchmark_pow_small
@@ -26,6 +28,23 @@ main =
             -- benchmark_divMod_64_29
             -- benchmark_divMod_64_40
             ]
+
+
+
+-- BENCHMARK - CONVERSION
+
+
+benchmark_fromString =
+    describe "fromString, 16 digits"
+        [ benchmark "decimal" <|
+            \_ -> UInt64.fromString "1234567890123456"
+        , benchmark "hex" <|
+            \_ -> UInt64.fromString "0x123456789aBcDeF0"
+        , benchmark "octal" <|
+            \_ -> UInt64.fromString "0o1234567012345670"
+        , benchmark "binary" <|
+            \_ -> UInt64.fromString "0b1010101010101010"
+        ]
 
 
 
