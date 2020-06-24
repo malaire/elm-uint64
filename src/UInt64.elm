@@ -9,7 +9,8 @@ module UInt64 exposing
     , add, sub, mul, pow, increment, decrement
     , div, mod, divMod
     , and, or, xor, complement, shiftLeftBy, shiftRightZfBy, rotateLeftBy, rotateRightBy, getBit, setBit
-    , compare, isSafe
+    , compare
+    , isSafe, isZero
     , divModFast, divModSlow
     )
 
@@ -45,7 +46,8 @@ module UInt64 exposing
       - [`getBit`](#getBit), [`setBit`](#setBit)
   - [Comparison](#comparison)
       - [`compare`](#compare)
-      - [`isSafe`](#isSafe)
+  - [Check](#check)
+      - [`isSafe`](#isSafe), [`isZero`](#isZero)
   - [Extra](#extra)
       - [`divModFast`](#divModFast), [`divModSlow`](#divModSlow)
 
@@ -132,7 +134,12 @@ but that can't be tested, so I'll settle for returning [`zero`](#zero) which can
 
 # Comparison
 
-@docs compare, isSafe
+@docs compare
+
+
+# Check
+
+@docs isSafe, isZero
 
 
 # Extra
@@ -912,7 +919,7 @@ toString x =
         ( highMidDecimal, lowDecimal ) =
             divMod x divisor
     in
-    if highMidDecimal == zero then
+    if isZero highMidDecimal then
         toDigits lowDecimal
 
     else
@@ -920,7 +927,7 @@ toString x =
             ( highDecimal, midDecimal ) =
                 divMod highMidDecimal divisor
         in
-        if highDecimal == zero then
+        if isZero highDecimal then
             toDigits midDecimal ++ (String.padLeft 7 '0' <| toDigits lowDecimal)
 
         else
@@ -1096,7 +1103,7 @@ pow ((UInt64 baseHigh baseMid baseLow) as base) ((UInt64 expHigh expMid expLow) 
     if baseLow <= 2 && baseMid == 0 && baseHigh == 0 then
         case baseLow of
             0 ->
-                if exponent == zero then
+                if isZero exponent then
                     -- Wikipedia says `0^0` is commonly either undefined or `1`.
                     -- Since `UInt64` doesn't support undefined, it's `1`.
                     -- > https://en.wikipedia.org/wiki/Zero_to_the_power_of_zero
@@ -1633,7 +1640,7 @@ divModFast dividend divisor =
     --   STEP 1) calculate approximate division using floating point division
     --   STEP 2) analyze error of approximation and handle it
     --
-    if divisor == zero then
+    if isZero divisor then
         -- be consistent with other division algorithms
         Ok ( zero, zero )
 
@@ -1799,7 +1806,7 @@ Intended use cases:
 -}
 divModSlow : UInt64 -> UInt64 -> ( UInt64, UInt64 )
 divModSlow dividend divisor =
-    if divisor == zero then
+    if isZero divisor then
         ( zero, zero )
 
     else
@@ -2245,6 +2252,20 @@ so it is rounded to another integer.
 isSafe : UInt64 -> Bool
 isSafe (UInt64 high _ _) =
     high <= maxSafeHighPart
+
+
+{-| Return `True` if argument is [`zero`](#zero).
+
+This is same as `(==)`[`zero`](#zero) but much faster.
+
+**Note:** See [Performance Optimization][PO]🢅 for discussion about speed of `==` in Elm 0.19.1.
+
+[PO]: https://discourse.elm-lang.org/t/performance-optimization/5105
+
+-}
+isZero : UInt64 -> Bool
+isZero (UInt64 high mid low) =
+    low == 0 && mid == 0 && high == 0
 
 
 

@@ -106,7 +106,10 @@ all =
 
         -- COMPARISON
         , test_compare
+
+        -- CHECK
         , test_isSafe
+        , test_isZero
 
         -- INTERNALS
         , testInternals
@@ -1426,6 +1429,10 @@ test_compare =
         ]
 
 
+
+-- TESTS - CHECK
+
+
 test_isSafe =
     describe "isSafe"
         [ -- INDIVIDUAL
@@ -1438,6 +1445,19 @@ test_isSafe =
         -- FULL RANGE FUZZ: isSafe
         , fuzz uint64 "fuzz" <|
             \a -> UInt64.isSafe a |> Expect.equal (UInt64.compare a UInt64.maxSafe /= GT)
+        ]
+
+
+test_isZero =
+    describe "isZero"
+        [ -- INDIVIDUAL
+          test "0 --> True" <|
+            \_ -> UInt64.zero |> UInt64.isZero |> Expect.true "True"
+
+        -- FUZZ
+        -- FULL RANGE FUZZ: isZero
+        , fuzz uint64 "isZero == (==) zero" <|
+            \a -> UInt64.isZero a |> Expect.equal (a == UInt64.zero)
         ]
 
 
