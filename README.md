@@ -21,6 +21,10 @@ UInt64.fromInt32s 0x11223344 0xAABBCCDD
     --> "BCCDD11223344AAB"
 ```
 
+## Changelog
+
+- [Changelog](https://github.com/malaire/elm-uint64/blob/master/CHANGELOG.md)🢅
+
 ## Design Goals
 
 ### **Low-level**
