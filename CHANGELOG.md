@@ -5,6 +5,7 @@
 - `fromString`
 - `square`
 - `div`, `mod`
+- `shiftRightZfBy1`
 - `isZero`, `isEven`, `isOdd`
 - Mersenne Twister example
 

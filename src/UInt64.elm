@@ -8,7 +8,7 @@ module UInt64 exposing
     , fromString, toString, toHexString
     , add, sub, mul, pow, increment, decrement, square
     , div, mod, divMod
-    , and, or, xor, complement, shiftLeftBy, shiftRightZfBy, rotateLeftBy, rotateRightBy, getBit, setBit
+    , and, or, xor, complement, shiftLeftBy, shiftRightZfBy, rotateLeftBy, rotateRightBy, shiftRightZfBy1, getBit, setBit
     , compare
     , isSafe, isZero, isEven, isOdd
     , divModFast, divModSlow
@@ -43,6 +43,7 @@ module UInt64 exposing
       - [`and`](#and), [`or`](#or), [`xor`](#xor), [`complement`](#complement)
       - [`shiftLeftBy`](#shiftLeftBy), [`shiftRightZfBy`](#shiftRightZfBy),
         [`rotateLeftBy`](#rotateLeftBy), [`rotateRightBy`](#rotateRightBy)
+      - [`shiftRightZfBy1`](#shiftRightZfBy1)
       - [`getBit`](#getBit), [`setBit`](#setBit)
   - [Comparison](#comparison)
       - [`compare`](#compare)
@@ -129,7 +130,7 @@ but that can't be tested, so I'll settle for returning [`zero`](#zero) which can
 
 # Bitwise
 
-@docs and, or, xor, complement, shiftLeftBy, shiftRightZfBy, rotateLeftBy, rotateRightBy, getBit, setBit
+@docs and, or, xor, complement, shiftLeftBy, shiftRightZfBy, rotateLeftBy, rotateRightBy, shiftRightZfBy1, getBit, setBit
 
 
 # Comparison
@@ -1224,12 +1225,12 @@ powHelper multiplier base ((UInt64 ( expHigh, expMid, expLow )) as exponent) =
     else if Bitwise.and 0x01 expLow == 0 then
         -- even exponent
         --   m * b ^ e == m * (b * b) ^ (e / 2)
-        powHelper multiplier (square base) (shiftRightZfBy 1 exponent)
+        powHelper multiplier (square base) (shiftRightZfBy1 exponent)
 
     else
         -- odd exponent
         --   m * b ^ e == (m * b) * (b * b) ^ ((e - 1) / 2)
-        powHelper (mul multiplier base) (square base) (shiftRightZfBy 1 exponent)
+        powHelper (mul multiplier base) (square base) (shiftRightZfBy1 exponent)
 
 
 {-| Squaring with wrapping overflow.
@@ -2228,6 +2229,25 @@ shiftRightZfBy givenShift (UInt64 ( high, mid, low )) =
             , 0
             , Bitwise.shiftRightZfBy (n - 48) high
             )
+
+
+{-| Bitwise shift right by one bit, filling with zero from left.
+
+`shiftRightZfBy1 a` is same as `shiftRightZfBy 1 a` but faster.
+
+    UInt64.fromInt32s 0xEECCAA88 0x66442200
+        |> UInt64.shiftRightZfBy1
+        |> UInt64.toHexString
+        --> "7766554433221100"
+
+-}
+shiftRightZfBy1 : UInt64 -> UInt64
+shiftRightZfBy1 (UInt64 ( high, mid, low )) =
+    UInt64
+        ( Bitwise.shiftRightZfBy 1 high
+        , Bitwise.and max24 <| Bitwise.or (Bitwise.shiftRightZfBy 1 mid) (Bitwise.shiftLeftBy 23 high)
+        , Bitwise.and max24 <| Bitwise.or (Bitwise.shiftRightZfBy 1 low) (Bitwise.shiftLeftBy 23 mid)
+        )
 
 
 {-| Bitwise XOR.

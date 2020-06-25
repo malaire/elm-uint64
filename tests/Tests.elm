@@ -104,6 +104,7 @@ all =
         , test_setBit
         , test_shiftLeftBy_mul
         , test_shiftRightZfBy_div
+        , test_shiftRightZfBy1_shiftRightZfBy
 
         -- COMPARISON
         , test_compare
@@ -1403,6 +1404,12 @@ test_shiftRightZfBy_div =
                      in
                      Tuple.first <| UInt64.divMod a divider
                     )
+
+
+test_shiftRightZfBy1_shiftRightZfBy =
+    -- FULL RANGE FUZZ: shiftRightZfBy1
+    fuzz uint64 "shiftRightZfBy1 n == shiftRightZfBy 1 n" <|
+        \a -> UInt64.shiftRightZfBy1 a |> Expect.equal (UInt64.shiftRightZfBy 1 a)
 
 
 
