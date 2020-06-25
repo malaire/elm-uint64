@@ -165,7 +165,7 @@ import Bitwise
 
 -}
 type UInt64
-    = UInt64 UInt16 UInt24 UInt24
+    = UInt64 ( UInt16, UInt24, UInt24 )
 
 
 
@@ -183,7 +183,7 @@ making this the maximum [`UInt64`](#UInt64) value that can.
 -}
 maxFloat : UInt64
 maxFloat =
-    UInt64 max16 max24 0x00FFF800
+    UInt64 ( max16, max24, 0x00FFF800 )
 
 
 {-| [`maxFloat`](#maxFloat) as `Float`
@@ -206,7 +206,7 @@ See also [`isSafe`](#isSafe).
 -}
 maxSafe : UInt64
 maxSafe =
-    UInt64 maxSafeHighPart max24 max24
+    UInt64 ( maxSafeHighPart, max24, max24 )
 
 
 {-| [`maxSafe`](#maxSafe) as `Float`
@@ -227,7 +227,7 @@ maxSafeAsFloat =
 -}
 maxValue : UInt64
 maxValue =
-    UInt64 max16 max24 max24
+    UInt64 ( max16, max24, max24 )
 
 
 {-| Minimum possible [`UInt64`](#UInt64) value.
@@ -241,28 +241,28 @@ Same as [`zero`](#zero).
 -}
 minValue : UInt64
 minValue =
-    UInt64 0 0 0
+    UInt64 ( 0, 0, 0 )
 
 
 {-| Number `0`
 -}
 zero : UInt64
 zero =
-    UInt64 0 0 0
+    UInt64 ( 0, 0, 0 )
 
 
 {-| Number `1`
 -}
 one : UInt64
 one =
-    UInt64 0 0 1
+    UInt64 ( 0, 0, 1 )
 
 
 {-| Number `2`
 -}
 two : UInt64
 two =
-    UInt64 0 0 2
+    UInt64 ( 0, 0, 2 )
 
 
 
@@ -430,7 +430,7 @@ fromInt x =
             low =
                 midLow - limit24 * mid
         in
-        UInt64 high mid low
+        UInt64 ( high, mid, low )
 
     else
         maxSafe
@@ -450,7 +450,7 @@ If [`UInt64`](#UInt64) is above `2^31 - 1`, return `Nothing`.
 
 -}
 toInt31 : UInt64 -> Maybe Int
-toInt31 (UInt64 high mid low) =
+toInt31 (UInt64 ( high, mid, low )) =
     if mid <= 0x7F && high == 0 then
         Just <| Bitwise.or (Bitwise.shiftLeftBy 24 mid) low
 
@@ -475,7 +475,7 @@ See [large `Int`](#large-int-) note.
 
 -}
 toInt53 : UInt64 -> Maybe Int
-toInt53 (UInt64 high mid low) =
+toInt53 (UInt64 ( high, mid, low )) =
     if high <= maxSafeHighPart then
         Just <| (high * limit24 + mid) * limit24 + low
 
@@ -546,7 +546,7 @@ floor x =
             low =
                 midLow - limit24 * Basics.toFloat mid
         in
-        UInt64 high mid (Basics.floor low)
+        UInt64 ( high, mid, Basics.floor low )
 
     else
         maxValue
@@ -569,7 +569,7 @@ so it's rounded to `9007199254740992`.
 
 -}
 toFloat : UInt64 -> Float
-toFloat (UInt64 high mid low) =
+toFloat (UInt64 ( high, mid, low )) =
     (Basics.toFloat high * limit24 + Basics.toFloat mid) * limit24 + Basics.toFloat low
 
 
@@ -612,28 +612,28 @@ fromBigEndianBytes bytes =
             zero
 
         [ b0 ] ->
-            UInt64 0 0 (to24 0 0 b0)
+            UInt64 ( 0, 0, to24 0 0 b0 )
 
         [ b1, b0 ] ->
-            UInt64 0 0 (to24 0 b1 b0)
+            UInt64 ( 0, 0, to24 0 b1 b0 )
 
         [ b2, b1, b0 ] ->
-            UInt64 0 0 (to24 b2 b1 b0)
+            UInt64 ( 0, 0, to24 b2 b1 b0 )
 
         [ b3, b2, b1, b0 ] ->
-            UInt64 0 (to24 0 0 b3) (to24 b2 b1 b0)
+            UInt64 ( 0, to24 0 0 b3, to24 b2 b1 b0 )
 
         [ b4, b3, b2, b1, b0 ] ->
-            UInt64 0 (to24 0 b4 b3) (to24 b2 b1 b0)
+            UInt64 ( 0, to24 0 b4 b3, to24 b2 b1 b0 )
 
         [ b5, b4, b3, b2, b1, b0 ] ->
-            UInt64 0 (to24 b5 b4 b3) (to24 b2 b1 b0)
+            UInt64 ( 0, to24 b5 b4 b3, to24 b2 b1 b0 )
 
         [ b6, b5, b4, b3, b2, b1, b0 ] ->
-            UInt64 (to16 0 b6) (to24 b5 b4 b3) (to24 b2 b1 b0)
+            UInt64 ( to16 0 b6, to24 b5 b4 b3, to24 b2 b1 b0 )
 
         [ b7, b6, b5, b4, b3, b2, b1, b0 ] ->
-            UInt64 (to16 b7 b6) (to24 b5 b4 b3) (to24 b2 b1 b0)
+            UInt64 ( to16 b7 b6, to24 b5 b4 b3, to24 b2 b1 b0 )
 
         tooManyBytes ->
             fromBigEndianBytes <| List.drop (List.length tooManyBytes - 8) tooManyBytes
@@ -675,7 +675,7 @@ fromDecimal12s givenHigh givenLow =
 
     else
         -- givenHigh * 1e12 + limitedLow
-        mul (floor limitedHigh) (UInt64 0 0xE8D4 0x00A51000)
+        mul (floor limitedHigh) (UInt64 ( 0, 0xE8D4, 0x00A51000 ))
             |> add (floor limitedLow)
 
 
@@ -701,7 +701,7 @@ See [argument handling](#argument-handling).
 -}
 fromInt24s : Int -> Int -> Int -> UInt64
 fromInt24s high mid low =
-    UInt64 (Bitwise.and max16 high) (Bitwise.and max24 mid) (Bitwise.and max24 low)
+    UInt64 ( Bitwise.and max16 high, Bitwise.and max24 mid, Bitwise.and max24 low )
 
 
 {-| Convert 64-bit unsigned integer represented as two 32-bit unsigned integers to [`UInt64`](#UInt64).
@@ -725,9 +725,10 @@ fromInt32s high32 low32 =
     -- HHHHMMMMMMLLLLLL
     -- hhhhhhhhllllllll
     UInt64
-        (Bitwise.shiftRightZfBy 16 high32)
-        (Bitwise.and max24 <| Bitwise.or (Bitwise.shiftLeftBy 8 high32) (Bitwise.shiftRightZfBy 24 low32))
-        (Bitwise.and max24 low32)
+        ( Bitwise.shiftRightZfBy 16 high32
+        , Bitwise.and max24 <| Bitwise.or (Bitwise.shiftLeftBy 8 high32) (Bitwise.shiftRightZfBy 24 low32)
+        , Bitwise.and max24 low32
+        )
 
 
 {-| Convert [`UInt64`](#UInt64) to list of 8 bytes in big-endian order.
@@ -738,7 +739,7 @@ fromInt32s high32 low32 =
 
 -}
 toBigEndianBytes : UInt64 -> List Int
-toBigEndianBytes (UInt64 high mid low) =
+toBigEndianBytes (UInt64 ( high, mid, low )) =
     [ Bitwise.shiftRightZfBy 8 high
     , Bitwise.and 0xFF high
     , Bitwise.shiftRightZfBy 16 mid
@@ -768,8 +769,8 @@ and so [`toInt24s`](#toInt24s) is the fastest way to extract value out of [`UInt
 
 -}
 toInt24s : UInt64 -> ( Int, Int, Int )
-toInt24s (UInt64 high mid low) =
-    ( high, mid, low )
+toInt24s (UInt64 tuple) =
+    tuple
 
 
 {-| Convert [`UInt64`](#UInt64) to 64-bit unsigned integer represented as two 32-bit unsigned integers.
@@ -785,7 +786,7 @@ See [large `Int`](#large-int-) note.
 
 -}
 toInt32s : UInt64 -> ( Int, Int )
-toInt32s (UInt64 high mid low) =
+toInt32s (UInt64 ( high, mid, low )) =
     -- HHHHMMMMMMLLLLLL
     -- hhhhhhhhllllllll
     ( Bitwise.shiftRightZfBy 0 <| Bitwise.or (Bitwise.shiftLeftBy 16 high) (Bitwise.shiftRightZfBy 8 mid)
@@ -877,7 +878,7 @@ fromString str =
 
 -}
 toHexString : UInt64 -> String
-toHexString (UInt64 high mid low) =
+toHexString (UInt64 ( high, mid, low )) =
     String.fromList
         [ nibbleToHex <| Bitwise.and 0x0F <| Bitwise.shiftRightZfBy 12 high
         , nibbleToHex <| Bitwise.and 0x0F <| Bitwise.shiftRightZfBy 8 high
@@ -910,10 +911,10 @@ toString x =
     let
         divisor =
             -- < 2^29 for faster division
-            UInt64 0 0 10000000
+            UInt64 ( 0, 0, 10000000 )
 
         toDigits : UInt64 -> String
-        toDigits (UInt64 _ mid low) =
+        toDigits (UInt64 ( _, mid, low )) =
             String.fromInt <| low + limit24 * mid
 
         ( highMidDecimal, lowDecimal ) =
@@ -954,7 +955,7 @@ toString x =
 
 -}
 add : UInt64 -> UInt64 -> UInt64
-add (UInt64 highA midA lowA) (UInt64 highB midB lowB) =
+add (UInt64 ( highA, midA, lowA )) (UInt64 ( highB, midB, lowB )) =
     let
         low =
             lowA + lowB
@@ -973,7 +974,7 @@ add (UInt64 highA midA lowA) (UInt64 highB midB lowB) =
             else
                 highA + highB + 1
     in
-    UInt64 (Bitwise.and max16 high) (Bitwise.and max24 mid) (Bitwise.and max24 low)
+    UInt64 ( Bitwise.and max16 high, Bitwise.and max24 mid, Bitwise.and max24 low )
 
 
 {-| Decrement by one with wrapping overflow.
@@ -990,15 +991,15 @@ add (UInt64 highA midA lowA) (UInt64 highB midB lowB) =
 
 -}
 decrement : UInt64 -> UInt64
-decrement (UInt64 high mid low) =
+decrement (UInt64 ( high, mid, low )) =
     if low > 0 then
-        UInt64 high mid (low - 1)
+        UInt64 ( high, mid, low - 1 )
 
     else if mid > 0 then
-        UInt64 high (mid - 1) max24
+        UInt64 ( high, mid - 1, max24 )
 
     else if high > 0 then
-        UInt64 (high - 1) max24 max24
+        UInt64 ( high - 1, max24, max24 )
 
     else
         maxValue
@@ -1018,15 +1019,15 @@ decrement (UInt64 high mid low) =
 
 -}
 increment : UInt64 -> UInt64
-increment (UInt64 high mid low) =
+increment (UInt64 ( high, mid, low )) =
     if low < max24 then
-        UInt64 high mid (low + 1)
+        UInt64 ( high, mid, low + 1 )
 
     else if mid < max24 then
-        UInt64 high (mid + 1) 0
+        UInt64 ( high, mid + 1, 0 )
 
     else if high < max16 then
-        UInt64 (high + 1) 0 0
+        UInt64 ( high + 1, 0, 0 )
 
     else
         zero
@@ -1046,7 +1047,7 @@ increment (UInt64 high mid low) =
 
 -}
 mul : UInt64 -> UInt64 -> UInt64
-mul (UInt64 highA midA lowA) (UInt64 highB midB lowB) =
+mul (UInt64 ( highA, midA, lowA )) (UInt64 ( highB, midB, lowB )) =
     let
         lowFull =
             lowA * lowB
@@ -1069,7 +1070,7 @@ mul (UInt64 highA midA lowA) (UInt64 highB midB lowB) =
         high =
             Bitwise.and max16 (midCarry + lowA * highB + midA * midB + highA * lowB)
     in
-    UInt64 high mid low
+    UInt64 ( high, mid, low )
 
 
 {-| Power aka exponentiation. `0 ^ 0 = 1`
@@ -1099,7 +1100,7 @@ exponents over 16 use [exponentiation by squaring][ES]🢅.
 
 -}
 pow : UInt64 -> UInt64 -> UInt64
-pow ((UInt64 baseHigh baseMid baseLow) as base) ((UInt64 expHigh expMid expLow) as exponent) =
+pow ((UInt64 ( baseHigh, baseMid, baseLow )) as base) ((UInt64 ( expHigh, expMid, expLow )) as exponent) =
     if baseLow <= 2 && baseMid == 0 && baseHigh == 0 then
         case baseLow of
             0 ->
@@ -1205,7 +1206,7 @@ pow ((UInt64 baseHigh baseMid baseLow) as base) ((UInt64 expHigh expMid expLow) 
 
 
 powHelper : UInt64 -> UInt64 -> UInt64 -> UInt64
-powHelper multiplier base ((UInt64 expHigh expMid expLow) as exponent) =
+powHelper multiplier base ((UInt64 ( expHigh, expMid, expLow )) as exponent) =
     -- tail recursive algorithm from https://en.wikipedia.org/wiki/Exponentiation_by_squaring
     --
     -- Algorithm
@@ -1248,7 +1249,7 @@ powHelper multiplier base ((UInt64 expHigh expMid expLow) as exponent) =
 
 -}
 sub : UInt64 -> UInt64 -> UInt64
-sub (UInt64 highA midA lowA) (UInt64 highB midB lowB) =
+sub (UInt64 ( highA, midA, lowA )) (UInt64 ( highB, midB, lowB )) =
     let
         low =
             lowA - lowB
@@ -1267,7 +1268,7 @@ sub (UInt64 highA midA lowA) (UInt64 highB midB lowB) =
             else
                 highA - highB - 1
     in
-    UInt64 (Bitwise.and max16 high) (Bitwise.and max24 mid) (Bitwise.and max24 low)
+    UInt64 ( Bitwise.and max16 high, Bitwise.and max24 mid, Bitwise.and max24 low )
 
 
 
@@ -1292,7 +1293,7 @@ sub (UInt64 highA midA lowA) (UInt64 highB midB lowB) =
 
 -}
 div : UInt64 -> UInt64 -> UInt64
-div dividend ((UInt64 divisorHigh divisorMid divisorLow) as divisor) =
+div dividend ((UInt64 ( divisorHigh, divisorMid, divisorLow )) as divisor) =
     -- TODO: Initial analysis suggests that it might be possible to implement
     --       this without `divModFast`. Maybe even with a single faster algorithm.
     if divisorMid <= 0x1F && divisorHigh == 0 then
@@ -1305,7 +1306,7 @@ div dividend ((UInt64 divisorHigh divisorMid divisorLow) as divisor) =
             -- `divisor` can be at most 29 bits
             -- Limiting factor is that `highMidCarry * limit24 + dividendLow` <= `2 ^ 53 - 1`.
             let
-                (UInt64 dividendHigh dividendMid dividendLow) =
+                (UInt64 ( dividendHigh, dividendMid, dividendLow )) =
                     dividend
 
                 dividendHighMid =
@@ -1332,7 +1333,7 @@ div dividend ((UInt64 divisorHigh divisorMid divisorLow) as divisor) =
                 quotMid =
                     quotHighMid - quotHigh * limit24
             in
-            UInt64 quotHigh quotMid quotLow
+            UInt64 ( quotHigh, quotMid, quotLow )
 
     else if isSafe dividend then
         -- TODO: ??? Copied from `divMod`. What limit applies here when modulo is not calculated. ???
@@ -1363,7 +1364,7 @@ div dividend ((UInt64 divisorHigh divisorMid divisorLow) as divisor) =
             quotLow =
                 quotMidLow - limit24 * quotMid
         in
-        UInt64 quotHigh quotMid quotLow
+        UInt64 ( quotHigh, quotMid, quotLow )
 
     else
         -- dividend >= 2^53 && divisor >= 2^29
@@ -1397,7 +1398,7 @@ div dividend ((UInt64 divisorHigh divisorMid divisorLow) as divisor) =
 
 -}
 divMod : UInt64 -> UInt64 -> ( UInt64, UInt64 )
-divMod dividend ((UInt64 divisorHigh divisorMid divisorLow) as divisor) =
+divMod dividend ((UInt64 ( divisorHigh, divisorMid, divisorLow )) as divisor) =
     if divisorMid <= 0x1F && divisorHigh == 0 then
         -- divisor < 2^29
         if divisorLow == 0 && divisorMid == 0 then
@@ -1407,7 +1408,7 @@ divMod dividend ((UInt64 divisorHigh divisorMid divisorLow) as divisor) =
             -- `divisor` can be at most 29 bits
             -- Limiting factor is that `highMidCarry * limit24 + dividendLow` <= `2 ^ 53 - 1`.
             let
-                (UInt64 dividendHigh dividendMid dividendLow) =
+                (UInt64 ( dividendHigh, dividendMid, dividendLow )) =
                     dividend
 
                 dividendHighMid =
@@ -1443,8 +1444,8 @@ divMod dividend ((UInt64 divisorHigh divisorMid divisorLow) as divisor) =
                 modLow =
                     Basics.floor modMidLow - modMid * limit24
             in
-            ( UInt64 quotHigh quotMid quotLow
-            , UInt64 0 modMid modLow
+            ( UInt64 ( quotHigh, quotMid, quotLow )
+            , UInt64 ( 0, modMid, modLow )
             )
 
     else if isSafe dividend then
@@ -1491,8 +1492,8 @@ divMod dividend ((UInt64 divisorHigh divisorMid divisorLow) as divisor) =
             modLow =
                 modMidLow - limit24 * Basics.toFloat modMid
         in
-        ( UInt64 quotHigh quotMid quotLow
-        , UInt64 modHigh modMid (Basics.floor modLow)
+        ( UInt64 ( quotHigh, quotMid, quotLow )
+        , UInt64 ( modHigh, modMid, Basics.floor modLow )
         )
 
     else
@@ -1525,7 +1526,7 @@ divMod dividend ((UInt64 divisorHigh divisorMid divisorLow) as divisor) =
 
 -}
 mod : UInt64 -> UInt64 -> UInt64
-mod dividend ((UInt64 divisorHigh divisorMid divisorLow) as divisor) =
+mod dividend ((UInt64 ( divisorHigh, divisorMid, divisorLow )) as divisor) =
     if divisorMid <= 0x1F && divisorHigh == 0 then
         -- divisor < 2^29
         if divisorLow == 0 && divisorMid == 0 then
@@ -1535,7 +1536,7 @@ mod dividend ((UInt64 divisorHigh divisorMid divisorLow) as divisor) =
             -- `divisor` can be at most 29 bits
             -- Limiting factor is that `highMidCarry * limit24 + dividendLow` <= `2 ^ 53 - 1`.
             let
-                (UInt64 dividendHigh dividendMid dividendLow) =
+                (UInt64 ( dividendHigh, dividendMid, dividendLow )) =
                     dividend
 
                 dividendHighMid =
@@ -1565,7 +1566,7 @@ mod dividend ((UInt64 divisorHigh divisorMid divisorLow) as divisor) =
                 modLow =
                     Basics.floor modMidLow - modMid * limit24
             in
-            UInt64 0 modMid modLow
+            UInt64 ( 0, modMid, modLow )
 
     else if isSafe dividend then
         -- dividend < 2^53 && divisor >= 2^29
@@ -1599,7 +1600,7 @@ mod dividend ((UInt64 divisorHigh divisorMid divisorLow) as divisor) =
             modLow =
                 modMidLow - limit24 * Basics.toFloat modMid
         in
-        UInt64 modHigh modMid (Basics.floor modLow)
+        UInt64 ( modHigh, modMid, Basics.floor modLow )
 
     else
         -- dividend >= 2^53 && divisor >= 2^29
@@ -1842,11 +1843,12 @@ divModSlow dividend divisor =
 
 -}
 and : UInt64 -> UInt64 -> UInt64
-and (UInt64 highA midA lowA) (UInt64 highB midB lowB) =
+and (UInt64 ( highA, midA, lowA )) (UInt64 ( highB, midB, lowB )) =
     UInt64
-        (Bitwise.and highA highB)
-        (Bitwise.and midA midB)
-        (Bitwise.and lowA lowB)
+        ( Bitwise.and highA highB
+        , Bitwise.and midA midB
+        , Bitwise.and lowA lowB
+        )
 
 
 {-| Bitwise complement, aka bitwise NOT, aka one's complement.
@@ -1858,11 +1860,12 @@ and (UInt64 highA midA lowA) (UInt64 highB midB lowB) =
 
 -}
 complement : UInt64 -> UInt64
-complement (UInt64 high mid low) =
+complement (UInt64 ( high, mid, low )) =
     UInt64
-        (Bitwise.xor max16 high)
-        (Bitwise.xor max24 mid)
-        (Bitwise.xor max24 low)
+        ( Bitwise.xor max16 high
+        , Bitwise.xor max24 mid
+        , Bitwise.xor max24 low
+        )
 
 
 {-| Return a bit.
@@ -1877,7 +1880,7 @@ See [argument handling](#argument-handling).
 
 -}
 getBit : Int -> UInt64 -> Int
-getBit givenBitNumber (UInt64 high mid low) =
+getBit givenBitNumber (UInt64 ( high, mid, low )) =
     let
         bitNumber =
             Bitwise.and 0x3F givenBitNumber
@@ -1903,11 +1906,12 @@ getBit givenBitNumber (UInt64 high mid low) =
 
 -}
 or : UInt64 -> UInt64 -> UInt64
-or (UInt64 highA midA lowA) (UInt64 highB midB lowB) =
+or (UInt64 ( highA, midA, lowA )) (UInt64 ( highB, midB, lowB )) =
     UInt64
-        (Bitwise.or highA highB)
-        (Bitwise.or midA midB)
-        (Bitwise.or lowA lowB)
+        ( Bitwise.or highA highB
+        , Bitwise.or midA midB
+        , Bitwise.or lowA lowB
+        )
 
 
 {-| Bitwise rotate left.
@@ -1923,7 +1927,7 @@ See [argument handling](#argument-handling).
 
 -}
 rotateLeftBy : Int -> UInt64 -> UInt64
-rotateLeftBy givenShift (UInt64 high mid low) =
+rotateLeftBy givenShift (UInt64 ( high, mid, low )) =
     let
         n =
             Bitwise.and 0x3F givenShift
@@ -1939,15 +1943,16 @@ rotateLeftBy givenShift (UInt64 high mid low) =
     -- 56: LLHH HHMMMM MMLLLL
     if n < 16 then
         UInt64
-            (Bitwise.and max16 <| Bitwise.or (Bitwise.shiftLeftBy n high) (Bitwise.shiftRightZfBy (24 - n) mid))
-            (Bitwise.and max24 <| Bitwise.or (Bitwise.shiftLeftBy n mid) (Bitwise.shiftRightZfBy (24 - n) low))
-            (Bitwise.and max24 <| Bitwise.or (Bitwise.shiftLeftBy n low) (Bitwise.shiftRightZfBy (16 - n) high))
+            ( Bitwise.and max16 <| Bitwise.or (Bitwise.shiftLeftBy n high) (Bitwise.shiftRightZfBy (24 - n) mid)
+            , Bitwise.and max24 <| Bitwise.or (Bitwise.shiftLeftBy n mid) (Bitwise.shiftRightZfBy (24 - n) low)
+            , Bitwise.and max24 <| Bitwise.or (Bitwise.shiftLeftBy n low) (Bitwise.shiftRightZfBy (16 - n) high)
+            )
 
     else if n < 24 then
         UInt64
-            (Bitwise.and max16 <| Bitwise.shiftRightZfBy (24 - n) mid)
-            (Bitwise.and max24 <| Bitwise.or (Bitwise.shiftLeftBy n mid) (Bitwise.shiftRightZfBy (24 - n) low))
-            (Bitwise.and max24 <|
+            ( Bitwise.and max16 <| Bitwise.shiftRightZfBy (24 - n) mid
+            , Bitwise.and max24 <| Bitwise.or (Bitwise.shiftLeftBy n mid) (Bitwise.shiftRightZfBy (24 - n) low)
+            , Bitwise.and max24 <|
                 Bitwise.shiftLeftBy n low
                     + Bitwise.shiftLeftBy (n - 16) high
                     + Bitwise.shiftRightZfBy (40 - n) mid
@@ -1955,26 +1960,28 @@ rotateLeftBy givenShift (UInt64 high mid low) =
 
     else if n < 40 then
         UInt64
-            (Bitwise.and max16 <| Bitwise.or (Bitwise.shiftLeftBy (n - 24) mid) (Bitwise.shiftRightZfBy (48 - n) low))
-            (Bitwise.and max24 <| Bitwise.or (Bitwise.shiftLeftBy (n - 24) low) (Bitwise.shiftRightZfBy (40 - n) high))
-            (Bitwise.and max24 <| Bitwise.or (Bitwise.shiftLeftBy (n - 16) high) (Bitwise.shiftRightZfBy (40 - n) mid))
+            ( Bitwise.and max16 <| Bitwise.or (Bitwise.shiftLeftBy (n - 24) mid) (Bitwise.shiftRightZfBy (48 - n) low)
+            , Bitwise.and max24 <| Bitwise.or (Bitwise.shiftLeftBy (n - 24) low) (Bitwise.shiftRightZfBy (40 - n) high)
+            , Bitwise.and max24 <| Bitwise.or (Bitwise.shiftLeftBy (n - 16) high) (Bitwise.shiftRightZfBy (40 - n) mid)
+            )
 
     else if n < 48 then
         UInt64
-            (Bitwise.and max16 <| Bitwise.shiftRightZfBy (48 - n) low)
-            (Bitwise.and max24 <|
+            ( Bitwise.and max16 <| Bitwise.shiftRightZfBy (48 - n) low
+            , Bitwise.and max24 <|
                 Bitwise.shiftLeftBy (n - 24) low
                     + Bitwise.shiftLeftBy (n - 40) high
                     + Bitwise.shiftRightZfBy (64 - n) mid
+            , Bitwise.and max24 <| Bitwise.or (Bitwise.shiftLeftBy (n - 40) mid) (Bitwise.shiftRightZfBy (64 - n) low)
             )
-            (Bitwise.and max24 <| Bitwise.or (Bitwise.shiftLeftBy (n - 40) mid) (Bitwise.shiftRightZfBy (64 - n) low))
 
     else
         -- n < 64
         UInt64
-            (Bitwise.and max16 <| Bitwise.or (Bitwise.shiftLeftBy (n - 48) low) (Bitwise.shiftRightZfBy (64 - n) high))
-            (Bitwise.and max24 <| Bitwise.or (Bitwise.shiftLeftBy (n - 40) high) (Bitwise.shiftRightZfBy (64 - n) mid))
-            (Bitwise.and max24 <| Bitwise.or (Bitwise.shiftLeftBy (n - 40) mid) (Bitwise.shiftRightZfBy (64 - n) low))
+            ( Bitwise.and max16 <| Bitwise.or (Bitwise.shiftLeftBy (n - 48) low) (Bitwise.shiftRightZfBy (64 - n) high)
+            , Bitwise.and max24 <| Bitwise.or (Bitwise.shiftLeftBy (n - 40) high) (Bitwise.shiftRightZfBy (64 - n) mid)
+            , Bitwise.and max24 <| Bitwise.or (Bitwise.shiftLeftBy (n - 40) mid) (Bitwise.shiftRightZfBy (64 - n) low)
+            )
 
 
 {-| Bitwise rotate right.
@@ -1990,7 +1997,7 @@ See [argument handling](#argument-handling).
 
 -}
 rotateRightBy : Int -> UInt64 -> UInt64
-rotateRightBy givenShift (UInt64 high mid low) =
+rotateRightBy givenShift (UInt64 ( high, mid, low )) =
     let
         n =
             Bitwise.and 0x3F givenShift
@@ -2006,31 +2013,33 @@ rotateRightBy givenShift (UInt64 high mid low) =
     -- 56: HHMM MMMMLL LLLLHH
     if n < 16 then
         UInt64
-            (Bitwise.and max16 <| Bitwise.or (Bitwise.shiftRightZfBy n high) (Bitwise.shiftLeftBy (16 - n) low))
-            (Bitwise.and max24 <| Bitwise.or (Bitwise.shiftRightZfBy n mid) (Bitwise.shiftLeftBy (24 - n) high))
-            (Bitwise.and max24 <| Bitwise.or (Bitwise.shiftRightZfBy n low) (Bitwise.shiftLeftBy (24 - n) mid))
+            ( Bitwise.and max16 <| Bitwise.or (Bitwise.shiftRightZfBy n high) (Bitwise.shiftLeftBy (16 - n) low)
+            , Bitwise.and max24 <| Bitwise.or (Bitwise.shiftRightZfBy n mid) (Bitwise.shiftLeftBy (24 - n) high)
+            , Bitwise.and max24 <| Bitwise.or (Bitwise.shiftRightZfBy n low) (Bitwise.shiftLeftBy (24 - n) mid)
+            )
 
     else if n < 24 then
         UInt64
-            (Bitwise.and max16 <| Bitwise.shiftRightZfBy (n - 16) low)
-            (Bitwise.and max24 <|
+            ( Bitwise.and max16 <| Bitwise.shiftRightZfBy (n - 16) low
+            , Bitwise.and max24 <|
                 Bitwise.shiftRightZfBy n mid
                     + Bitwise.shiftLeftBy (24 - n) high
                     + Bitwise.shiftLeftBy (40 - n) low
+            , Bitwise.and max24 <| Bitwise.or (Bitwise.shiftRightZfBy n low) (Bitwise.shiftLeftBy (24 - n) mid)
             )
-            (Bitwise.and max24 <| Bitwise.or (Bitwise.shiftRightZfBy n low) (Bitwise.shiftLeftBy (24 - n) mid))
 
     else if n < 40 then
         UInt64
-            (Bitwise.and max16 <| Bitwise.or (Bitwise.shiftRightZfBy (n - 16) low) (Bitwise.shiftLeftBy (40 - n) mid))
-            (Bitwise.and max24 <| Bitwise.or (Bitwise.shiftRightZfBy (n - 24) high) (Bitwise.shiftLeftBy (40 - n) low))
-            (Bitwise.and max24 <| Bitwise.or (Bitwise.shiftRightZfBy (n - 24) mid) (Bitwise.shiftLeftBy (48 - n) high))
+            ( Bitwise.and max16 <| Bitwise.or (Bitwise.shiftRightZfBy (n - 16) low) (Bitwise.shiftLeftBy (40 - n) mid)
+            , Bitwise.and max24 <| Bitwise.or (Bitwise.shiftRightZfBy (n - 24) high) (Bitwise.shiftLeftBy (40 - n) low)
+            , Bitwise.and max24 <| Bitwise.or (Bitwise.shiftRightZfBy (n - 24) mid) (Bitwise.shiftLeftBy (48 - n) high)
+            )
 
     else if n < 48 then
         UInt64
-            (Bitwise.and max16 <| Bitwise.shiftRightZfBy (n - 40) mid)
-            (Bitwise.and max24 <| Bitwise.or (Bitwise.shiftRightZfBy (n - 40) low) (Bitwise.shiftLeftBy (64 - n) mid))
-            (Bitwise.and max24 <|
+            ( Bitwise.and max16 <| Bitwise.shiftRightZfBy (n - 40) mid
+            , Bitwise.and max24 <| Bitwise.or (Bitwise.shiftRightZfBy (n - 40) low) (Bitwise.shiftLeftBy (64 - n) mid)
+            , Bitwise.and max24 <|
                 Bitwise.shiftRightZfBy (n - 24) mid
                     + Bitwise.shiftLeftBy (48 - n) high
                     + Bitwise.shiftLeftBy (64 - n) low
@@ -2039,9 +2048,10 @@ rotateRightBy givenShift (UInt64 high mid low) =
     else
         -- n < 64
         UInt64
-            (Bitwise.and max16 <| Bitwise.or (Bitwise.shiftRightZfBy (n - 40) mid) (Bitwise.shiftLeftBy (64 - n) high))
-            (Bitwise.and max24 <| Bitwise.or (Bitwise.shiftRightZfBy (n - 40) low) (Bitwise.shiftLeftBy (64 - n) mid))
-            (Bitwise.and max24 <| Bitwise.or (Bitwise.shiftRightZfBy (n - 48) high) (Bitwise.shiftLeftBy (64 - n) low))
+            ( Bitwise.and max16 <| Bitwise.or (Bitwise.shiftRightZfBy (n - 40) mid) (Bitwise.shiftLeftBy (64 - n) high)
+            , Bitwise.and max24 <| Bitwise.or (Bitwise.shiftRightZfBy (n - 40) low) (Bitwise.shiftLeftBy (64 - n) mid)
+            , Bitwise.and max24 <| Bitwise.or (Bitwise.shiftRightZfBy (n - 48) high) (Bitwise.shiftLeftBy (64 - n) low)
+            )
 
 
 {-| Set a bit to given value.
@@ -2058,7 +2068,7 @@ See [argument handling](#argument-handling).
 
 -}
 setBit : Int -> Int -> UInt64 -> UInt64
-setBit givenBitNumber givenBitValue (UInt64 high mid low) =
+setBit givenBitNumber givenBitValue (UInt64 ( high, mid, low )) =
     let
         bitNumber =
             Bitwise.and 0x3F givenBitNumber
@@ -2068,27 +2078,27 @@ setBit givenBitNumber givenBitValue (UInt64 high mid low) =
     in
     if bitNumber < 24 then
         if bitValue == 0 then
-            UInt64 high mid (Bitwise.and low <| Bitwise.complement <| Bitwise.shiftLeftBy bitNumber 1)
+            UInt64 ( high, mid, Bitwise.and low <| Bitwise.complement <| Bitwise.shiftLeftBy bitNumber 1 )
 
         else
-            UInt64 high mid (Bitwise.or low <| Bitwise.shiftLeftBy bitNumber 1)
+            UInt64 ( high, mid, Bitwise.or low <| Bitwise.shiftLeftBy bitNumber 1 )
 
     else if bitNumber < 48 then
         if bitValue == 0 then
-            UInt64 high (Bitwise.and mid <| Bitwise.complement <| Bitwise.shiftLeftBy (bitNumber - 24) 1) low
+            UInt64 ( high, Bitwise.and mid <| Bitwise.complement <| Bitwise.shiftLeftBy (bitNumber - 24) 1, low )
 
         else
-            UInt64 high (Bitwise.or mid <| Bitwise.shiftLeftBy (bitNumber - 24) 1) low
+            UInt64 ( high, Bitwise.or mid <| Bitwise.shiftLeftBy (bitNumber - 24) 1, low )
 
     else if bitNumber < 64 then
         if bitValue == 0 then
-            UInt64 (Bitwise.and high <| Bitwise.complement <| Bitwise.shiftLeftBy (bitNumber - 48) 1) mid low
+            UInt64 ( Bitwise.and high <| Bitwise.complement <| Bitwise.shiftLeftBy (bitNumber - 48) 1, mid, low )
 
         else
-            UInt64 (Bitwise.or high <| Bitwise.shiftLeftBy (bitNumber - 48) 1) mid low
+            UInt64 ( Bitwise.or high <| Bitwise.shiftLeftBy (bitNumber - 48) 1, mid, low )
 
     else
-        UInt64 high mid low
+        UInt64 ( high, mid, low )
 
 
 {-| Bitwise shift left, filling with zeroes from right.
@@ -2104,7 +2114,7 @@ See [argument handling](#argument-handling).
 
 -}
 shiftLeftBy : Int -> UInt64 -> UInt64
-shiftLeftBy givenShift (UInt64 high mid low) =
+shiftLeftBy givenShift (UInt64 ( high, mid, low )) =
     let
         n =
             Bitwise.and 0x3F givenShift
@@ -2114,22 +2124,25 @@ shiftLeftBy givenShift (UInt64 high mid low) =
     -- 48: LLLL 000000 000000
     if n < 24 then
         UInt64
-            (Bitwise.and max16 <| Bitwise.or (Bitwise.shiftLeftBy n high) (Bitwise.shiftRightZfBy (24 - n) mid))
-            (Bitwise.and max24 <| Bitwise.or (Bitwise.shiftLeftBy n mid) (Bitwise.shiftRightZfBy (24 - n) low))
-            (Bitwise.and max24 <| Bitwise.shiftLeftBy n low)
+            ( Bitwise.and max16 <| Bitwise.or (Bitwise.shiftLeftBy n high) (Bitwise.shiftRightZfBy (24 - n) mid)
+            , Bitwise.and max24 <| Bitwise.or (Bitwise.shiftLeftBy n mid) (Bitwise.shiftRightZfBy (24 - n) low)
+            , Bitwise.and max24 <| Bitwise.shiftLeftBy n low
+            )
 
     else if n < 48 then
         UInt64
-            (Bitwise.and max16 <| Bitwise.or (Bitwise.shiftLeftBy (n - 24) mid) (Bitwise.shiftRightZfBy (48 - n) low))
-            (Bitwise.and max24 <| Bitwise.shiftLeftBy (n - 24) low)
-            0
+            ( Bitwise.and max16 <| Bitwise.or (Bitwise.shiftLeftBy (n - 24) mid) (Bitwise.shiftRightZfBy (48 - n) low)
+            , Bitwise.and max24 <| Bitwise.shiftLeftBy (n - 24) low
+            , 0
+            )
 
     else
         -- n < 64
         UInt64
-            (Bitwise.and max16 <| Bitwise.shiftLeftBy (n - 48) low)
-            0
-            0
+            ( Bitwise.and max16 <| Bitwise.shiftLeftBy (n - 48) low
+            , 0
+            , 0
+            )
 
 
 {-| Bitwise shift right, filling with zeroes from left.
@@ -2145,7 +2158,7 @@ See [argument handling](#argument-handling).
 
 -}
 shiftRightZfBy : Int -> UInt64 -> UInt64
-shiftRightZfBy givenShift (UInt64 high mid low) =
+shiftRightZfBy givenShift (UInt64 ( high, mid, low )) =
     let
         n =
             Bitwise.and 0x3F givenShift
@@ -2158,23 +2171,26 @@ shiftRightZfBy givenShift (UInt64 high mid low) =
     if n < 24 then
         -- MAYBE TODO: ??? Should this be split at 16 ???
         UInt64
-            (Bitwise.shiftRightZfBy n high)
-            (Bitwise.and max24 <| Bitwise.or (Bitwise.shiftRightZfBy n mid) (Bitwise.shiftLeftBy (24 - n) high))
-            (Bitwise.and max24 <| Bitwise.or (Bitwise.shiftRightZfBy n low) (Bitwise.shiftLeftBy (24 - n) mid))
+            ( Bitwise.shiftRightZfBy n high
+            , Bitwise.and max24 <| Bitwise.or (Bitwise.shiftRightZfBy n mid) (Bitwise.shiftLeftBy (24 - n) high)
+            , Bitwise.and max24 <| Bitwise.or (Bitwise.shiftRightZfBy n low) (Bitwise.shiftLeftBy (24 - n) mid)
+            )
 
     else if n < 48 then
         -- MAYBE TODO: ??? Should this be split at 40 ???
         UInt64
-            0
-            (Bitwise.shiftRightZfBy (n - 24) high)
-            (Bitwise.and max24 <| Bitwise.or (Bitwise.shiftRightZfBy (n - 24) mid) (Bitwise.shiftLeftBy (48 - n) high))
+            ( 0
+            , Bitwise.shiftRightZfBy (n - 24) high
+            , Bitwise.and max24 <| Bitwise.or (Bitwise.shiftRightZfBy (n - 24) mid) (Bitwise.shiftLeftBy (48 - n) high)
+            )
 
     else
         -- n < 64
         UInt64
-            0
-            0
-            (Bitwise.shiftRightZfBy (n - 48) high)
+            ( 0
+            , 0
+            , Bitwise.shiftRightZfBy (n - 48) high
+            )
 
 
 {-| Bitwise XOR.
@@ -2187,11 +2203,12 @@ shiftRightZfBy givenShift (UInt64 high mid low) =
 
 -}
 xor : UInt64 -> UInt64 -> UInt64
-xor (UInt64 highA midA lowA) (UInt64 highB midB lowB) =
+xor (UInt64 ( highA, midA, lowA )) (UInt64 ( highB, midB, lowB )) =
     UInt64
-        (Bitwise.xor highA highB)
-        (Bitwise.xor midA midB)
-        (Bitwise.xor lowA lowB)
+        ( Bitwise.xor highA highB
+        , Bitwise.xor midA midB
+        , Bitwise.xor lowA lowB
+        )
 
 
 
@@ -2205,7 +2222,7 @@ xor (UInt64 highA midA lowA) (UInt64 highB midB lowB) =
 
 -}
 compare : UInt64 -> UInt64 -> Basics.Order
-compare (UInt64 highA midA lowA) (UInt64 highB midB lowB) =
+compare (UInt64 ( highA, midA, lowA )) (UInt64 ( highB, midB, lowB )) =
     case Basics.compare highA highB of
         EQ ->
             case Basics.compare midA midB of
@@ -2226,14 +2243,14 @@ compare (UInt64 highA midA lowA) (UInt64 highB midB lowB) =
 {-| Return `True` if argument is even.
 -}
 isEven : UInt64 -> Bool
-isEven (UInt64 _ _ low) =
+isEven (UInt64 ( _, _, low )) =
     Bitwise.and 0x01 low == 0
 
 
 {-| Return `True` if argument is odd.
 -}
 isOdd : UInt64 -> Bool
-isOdd (UInt64 _ _ low) =
+isOdd (UInt64 ( _, _, low )) =
     Bitwise.and 0x01 low == 1
 
 
@@ -2268,7 +2285,7 @@ so it is rounded to another integer.
 
 -}
 isSafe : UInt64 -> Bool
-isSafe (UInt64 high _ _) =
+isSafe (UInt64 ( high, _, _ )) =
     high <= maxSafeHighPart
 
 
@@ -2282,7 +2299,7 @@ This is same as `(==)`[`zero`](#zero) but much faster.
 
 -}
 isZero : UInt64 -> Bool
-isZero (UInt64 high mid low) =
+isZero (UInt64 ( high, mid, low )) =
     low == 0 && mid == 0 && high == 0
 
 
@@ -2310,7 +2327,7 @@ and 72 is actually a bit simpler.
 
 -}
 type UInt72
-    = UInt72 UInt24 UInt24 UInt24
+    = UInt72 ( UInt24, UInt24, UInt24 )
 
 
 
@@ -2400,7 +2417,7 @@ riskyFloatTo64 x =
         mid =
             highMid - high * limit24
     in
-    UInt64 high mid low
+    UInt64 ( high, mid, low )
 
 
 
@@ -2613,7 +2630,7 @@ fromDecimalDigits digits =
 
         else
             -- highDecimal * 1e10 + lowDecimal
-            mul (floor highDecimal) (UInt64 0 0x0254 0x000BE400)
+            mul (floor highDecimal) (UInt64 ( 0, 0x0254, 0x000BE400 ))
                 |> add (floor lowDecimal)
                 |> Just
 
@@ -2661,7 +2678,7 @@ fromNonDecimalDigits bitsPerDigit digits =
             Nothing
 
         else
-            Just <| UInt64 (Basics.floor high) mid low
+            Just <| UInt64 ( Basics.floor high, mid, low )
 
 
 {-| Return 'X' for invalid argument.
@@ -2741,7 +2758,7 @@ riskyDigitsToFloat base value digits =
 
 
 compare72_64 : UInt72 -> UInt64 -> Basics.Order
-compare72_64 (UInt72 highA midA lowA) (UInt64 highB midB lowB) =
+compare72_64 (UInt72 ( highA, midA, lowA )) (UInt64 ( highB, midB, lowB )) =
     case Basics.compare highA highB of
         EQ ->
             case Basics.compare midA midB of
@@ -2756,12 +2773,12 @@ compare72_64 (UInt72 highA midA lowA) (UInt64 highB midB lowB) =
 
 
 isSafe72 : UInt72 -> Bool
-isSafe72 (UInt72 high _ _) =
+isSafe72 (UInt72 ( high, _, _ )) =
     high <= maxSafeHighPart
 
 
 mul64_64_72 : UInt64 -> UInt64 -> UInt72
-mul64_64_72 (UInt64 highA midA lowA) (UInt64 highB midB lowB) =
+mul64_64_72 (UInt64 ( highA, midA, lowA )) (UInt64 ( highB, midB, lowB )) =
     let
         lowFull =
             lowA * lowB
@@ -2784,18 +2801,18 @@ mul64_64_72 (UInt64 highA midA lowA) (UInt64 highB midB lowB) =
         high =
             Bitwise.and max24 (midCarry + lowA * highB + midA * midB + highA * lowB)
     in
-    UInt72 high mid low
+    UInt72 ( high, mid, low )
 
 
 {-| Use only when UInt72 is known to be < 2^64
 -}
 risky72to64 : UInt72 -> UInt64
-risky72to64 (UInt72 high mid low) =
-    UInt64 high mid low
+risky72to64 (UInt72 tuple) =
+    UInt64 tuple
 
 
 sub72_64_72 : UInt72 -> UInt64 -> UInt72
-sub72_64_72 (UInt72 highA midA lowA) (UInt64 highB midB lowB) =
+sub72_64_72 (UInt72 ( highA, midA, lowA )) (UInt64 ( highB, midB, lowB )) =
     let
         low =
             lowA - lowB
@@ -2814,9 +2831,9 @@ sub72_64_72 (UInt72 highA midA lowA) (UInt64 highB midB lowB) =
             else
                 highA - highB - 1
     in
-    UInt72 (Bitwise.and max24 high) (Bitwise.and max24 mid) (Bitwise.and max24 low)
+    UInt72 ( Bitwise.and max24 high, Bitwise.and max24 mid, Bitwise.and max24 low )
 
 
 toFloat72 : UInt72 -> Float
-toFloat72 (UInt72 high mid low) =
+toFloat72 (UInt72 ( high, mid, low )) =
     (Basics.toFloat high * limit24 + Basics.toFloat mid) * limit24 + Basics.toFloat low
