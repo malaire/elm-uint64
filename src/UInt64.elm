@@ -1235,7 +1235,7 @@ powHelper multiplier base ((UInt64 ( expHigh, expMid, expLow )) as exponent) =
 
 {-| Squaring with wrapping overflow.
 
-`square a` is same as `mul a a` or `pow a 2` but faster.
+`square a` is same as `mul a a` or `pow a two` but faster.
 
     -- `1e9 * 1e9`
     UInt64.square (UInt64.floor 1e9)
@@ -1418,7 +1418,7 @@ div dividend ((UInt64 ( divisorHigh, divisorMid, divisorLow )) as divisor) =
 
 {-| Integer division with modulo.
 
-`divMod a b` is same as `( div a b, mod a b )` except faster.
+`divMod a b` is same as `( div a b, mod a b )` but faster.
 
   - If divisor is [`zero`](#zero), return `( zero, zero )`.
 
