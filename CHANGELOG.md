@@ -3,6 +3,7 @@
 ## [Unreleased]
 ### Added
 - `fromString`
+- `square`
 - `div`, `mod`
 - `isZero`, `isEven`, `isOdd`
 - Mersenne Twister example

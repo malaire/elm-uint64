@@ -82,6 +82,7 @@ all =
         , test_increment_add
         , test_mul
         , test_pow
+        , test_square_mul
         , test_sub
         , test_sub_add_complement
         , test_sub_mul
@@ -1016,6 +1017,14 @@ test_pow =
         , powFuzzTest uint64 uint64 "x^n == x * x^(n-1)"
         , powFuzzTest uint64 (Fuzz.map (UInt64.fromInt24s 0 0) <| Fuzz.intRange 0 32) "x^n == x * x^(n-1) ; small exponent"
         , powFuzzTest (Fuzz.map (UInt64.fromInt24s 0 0) <| Fuzz.intRange 0 5) uint64 "x^n == x * x^(n-1) ; small base"
+        ]
+
+
+test_square_mul =
+    -- FULL RANGE FUZZ: square
+    describe "square & mul"
+        [ fuzz uint64 "square a == mul a a" <|
+            \a -> UInt64.square a |> Expect.equal (UInt64.mul a a)
         ]
 
 

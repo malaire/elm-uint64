@@ -6,7 +6,7 @@ module UInt64 exposing
     , floor, toFloat
     , fromInt32s, toInt32s, fromInt24s, toInt24s, fromDecimal12s, fromBigEndianBytes, toBigEndianBytes
     , fromString, toString, toHexString
-    , add, sub, mul, pow, increment, decrement
+    , add, sub, mul, pow, increment, decrement, square
     , div, mod, divMod
     , and, or, xor, complement, shiftLeftBy, shiftRightZfBy, rotateLeftBy, rotateRightBy, getBit, setBit
     , compare
@@ -36,7 +36,7 @@ module UInt64 exposing
       - [`fromString`](#fromString), [`toString`](#toString), [`toHexString`](#toHexString)
   - [Math](#math)
       - [`add`](#add), [`sub`](#sub), [`mul`](#mul), [`pow`](#pow)
-      - [`increment`](#increment), [`decrement`](#decrement)
+      - [`increment`](#increment), [`decrement`](#decrement), [`square`](#square)
   - [Division](#division)
       - [`div`](#div), [`mod`](#mod), [`divMod`](#divMod)
   - [Bitwise](#bitwise)
@@ -116,7 +116,7 @@ up to [`maxSafe`](#maxSafe), but this could change in the future.
 
 # Math
 
-@docs add, sub, mul, pow, increment, decrement
+@docs add, sub, mul, pow, increment, decrement, square
 
 
 # Division
@@ -1130,11 +1130,8 @@ pow ((UInt64 ( baseHigh, baseMid, baseLow )) as base) ((UInt64 ( expHigh, expMid
         -- then such a function should probably be implemented separately in another package.
         -- > https://en.wikipedia.org/wiki/Addition-chain_exponentiation
         let
-            square x =
-                mul x x
-
             cube x =
-                mul x <| mul x x
+                mul x <| square x
         in
         case expLow of
             0 ->
@@ -1227,12 +1224,52 @@ powHelper multiplier base ((UInt64 ( expHigh, expMid, expLow )) as exponent) =
     else if Bitwise.and 0x01 expLow == 0 then
         -- even exponent
         --   m * b ^ e == m * (b * b) ^ (e / 2)
-        powHelper multiplier (mul base base) (shiftRightZfBy 1 exponent)
+        powHelper multiplier (square base) (shiftRightZfBy 1 exponent)
 
     else
         -- odd exponent
         --   m * b ^ e == (m * b) * (b * b) ^ ((e - 1) / 2)
-        powHelper (mul multiplier base) (mul base base) (shiftRightZfBy 1 exponent)
+        powHelper (mul multiplier base) (square base) (shiftRightZfBy 1 exponent)
+
+
+{-| Squaring with wrapping overflow.
+
+`square a` is same as `mul a a` or `pow a 2` but faster.
+
+    -- `1e9 * 1e9`
+    UInt64.square (UInt64.floor 1e9)
+        |> UInt64.toString
+        --> "1000000000000000000"
+
+-}
+square : UInt64 -> UInt64
+square (UInt64 ( high, mid, low )) =
+    let
+        lowDouble =
+            Bitwise.shiftLeftBy 1 low
+
+        lowFull =
+            low * low
+
+        lowCarry =
+            Basics.floor <| Basics.toFloat lowFull / limit24
+
+        lowX =
+            lowFull - lowCarry * limit24
+
+        midFull =
+            lowCarry + lowDouble * mid
+
+        midCarry =
+            Basics.floor <| Basics.toFloat midFull / limit24
+
+        midX =
+            midFull - midCarry * limit24
+
+        highX =
+            Bitwise.and max16 (midCarry + mid * mid + lowDouble * high)
+    in
+    UInt64 ( highX, midX, lowX )
 
 
 {-| Subtraction with wrapping overflow.
