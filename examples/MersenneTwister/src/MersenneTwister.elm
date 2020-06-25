@@ -78,6 +78,27 @@ get index array =
         |> Maybe.withDefault UInt64.zero
 
 
+{-| Create `mt` from `seed`.
+
+Initial call with `index = 1, head = seed, tail = []`.
+
+-}
+initMt : Int -> UInt64 -> List UInt64 -> List UInt64
+initMt index head tail =
+    if index == nn then
+        List.reverse <| head :: tail
+
+    else
+        let
+            next =
+                UInt64.shiftRightZfBy 62 head
+                    |> UInt64.xor head
+                    |> UInt64.mul initMultiplier
+                    |> UInt64.add (UInt64.fromInt24s 0 0 index)
+        in
+        initMt (index + 1) next (head :: tail)
+
+
 
 -- MAIN FUNCTIONS
 
@@ -86,21 +107,7 @@ init : UInt64 -> MersenneTwister
 init seed =
     MersenneTwister
         { index = nn
-        , mt =
-            List.foldl
-                (\index ( head, tail ) ->
-                    let
-                        next =
-                            UInt64.shiftRightZfBy 62 head
-                                |> UInt64.xor head
-                                |> UInt64.mul initMultiplier
-                                |> UInt64.add (UInt64.fromInt index)
-                    in
-                    ( next, head :: tail )
-                )
-                ( seed, [] )
-                (List.range 1 (nn - 1))
-                |> (\( head, tail ) -> Array.fromList <| List.reverse <| head :: tail)
+        , mt = Array.fromList <| initMt 1 seed []
         }
 
 
