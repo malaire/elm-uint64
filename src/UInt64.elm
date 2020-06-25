@@ -2128,15 +2128,13 @@ setBit givenBitNumber givenBitValue (UInt64 ( high, mid, low )) =
         else
             UInt64 ( high, Bitwise.or mid <| Bitwise.shiftLeftBy (bitNumber - 24) 1, low )
 
-    else if bitNumber < 64 then
-        if bitValue == 0 then
-            UInt64 ( Bitwise.and high <| Bitwise.complement <| Bitwise.shiftLeftBy (bitNumber - 48) 1, mid, low )
-
-        else
-            UInt64 ( Bitwise.or high <| Bitwise.shiftLeftBy (bitNumber - 48) 1, mid, low )
+    else if bitValue == 0 then
+        -- bitNumber < 64
+        UInt64 ( Bitwise.and high <| Bitwise.complement <| Bitwise.shiftLeftBy (bitNumber - 48) 1, mid, low )
 
     else
-        UInt64 ( high, mid, low )
+        -- bitNumber < 64
+        UInt64 ( Bitwise.or high <| Bitwise.shiftLeftBy (bitNumber - 48) 1, mid, low )
 
 
 {-| Bitwise shift left, filling with zeroes from right.
