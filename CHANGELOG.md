@@ -2,12 +2,14 @@
 
 ## [Unreleased]
 ### Added
-- `fromString`
-- `square`
+- `fromString` - convert decimal/hex/octal/binary `String` to `UInt64`
 - `div`, `mod`
-- `shiftRightZfBy1`
-- `isZero`, `isEven`, `isOdd`
+- `isEven`, `isOdd`, `isZero`, `shiftRightZfBy1`, `square`
 - Mersenne Twister example
+
+### Optimized
+- Many internal optimizations, which have increased speed of nearly all functions.
+- Speed of `pow` with large exponents has increased 400% in Firefox.
 
 ## [1.0.0] - 2020-06-20
 ### Added

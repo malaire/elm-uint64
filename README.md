@@ -66,15 +66,15 @@ As usual I'm not interested in proper benchmarking, so take these with `2^64` gr
 
 ```text
                                       runs / second
-pow   : 64-bit number ^ 64-bit number: ~     40 000
-pow   : 64-bit number ^ 251          : ~    300 000
-divMod: 64-bit number / 40-bit number: ~  2 000 000
-pow   : 64-bit number ^ 16           : ~  3 000 000
-divMod: 64-bit number / 29-bit number: ~  5 000 000
-add, sub, mul                        : > 10 000 000
-bitwise shift/rotate by 1 bit        : ~ 20 000 000
+pow   : 64-bit number ^ 64-bit number: ~    200 000
+pow   : 64-bit number ^ 251          : ~  1 500 000
+divMod: 64-bit number / 40-bit number: ~  3 000 000
+pow   : 64-bit number ^ 16           : >  8 000 000
+divMod: 64-bit number / 29-bit number: > 10 000 000
+add, sub, mul                        : > 20 000 000
+bitwise shift/rotate by 1 bit        : > 25 000 000
 ```
-Benchmarking was done 2020-06-19 with version `1.0.0`, `elm make --optimize`,
+Benchmarking was done 2020-06-26 with version `1.1.0`, `elm make --optimize`,
 Elm 0.19.1, Firefox 68, Debian Linux and Core i5 3570K 3.4 GHz.
 
 Some example benchmarks are included in `benchmarks` directory of source.
