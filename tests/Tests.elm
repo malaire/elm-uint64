@@ -694,6 +694,19 @@ test_fromString =
                 , ( 3, Fuzz.map Char.fromCode <| Fuzz.intRange 0x00100000 0x0010FFFF )
                 ]
 
+        -- because of String.toInt
+        plusMinusDecimalFuzzer : Fuzzer String
+        plusMinusDecimalFuzzer =
+            -- For String of 10 characters, this gives about 50/50 chance of it containing at least one incorrect char.
+            Fuzz.frequency
+                [ ( 7, Fuzz.oneOf <| List.map Fuzz.constant [ '1', '2', '3', '4', '5', '6', '7', '8', '9' ] )
+                , ( 86, Fuzz.constant '0' )
+                , ( 3.5, Fuzz.constant '-' )
+                , ( 3.5, Fuzz.constant '+' )
+                ]
+                |> Fuzz.list
+                |> Fuzz.map String.fromList
+
         withoutPrefixFuzzer : Dict Char a -> Fuzzer String
         withoutPrefixFuzzer chars =
             -- For String of 10 characters, this gives about 50/50 chance of it containing at least one incorrect char.
@@ -735,6 +748,35 @@ test_fromString =
         [ -- INDIVIDUAL
           test "empty string" <|
             \_ -> UInt64.fromString "" |> Expect.equal Nothing
+
+        -- INDIVIDUAL - BECAUSE OF String.toInt
+        , test "-0" <|
+            \_ -> UInt64.fromString "-0" |> Expect.equal Nothing
+        , test "+0" <|
+            \_ -> UInt64.fromString "+0" |> Expect.equal Nothing
+        , test "'-' + a lot of zeroes" <|
+            \_ -> UInt64.fromString "-0000000000000000000000000000000000000000" |> Expect.equal Nothing
+        , test "'+' + a lot of zeroes" <|
+            \_ -> UInt64.fromString "+0000000000000000000000000000000000000000" |> Expect.equal Nothing
+        , test "a lot of zeroes + '-0'" <|
+            \_ -> UInt64.fromString "0000000000000000000000000000000000000000-0" |> Expect.equal Nothing
+        , test "a lot of zeroes + '+0'" <|
+            \_ -> UInt64.fromString "0000000000000000000000000000000000000000+0" |> Expect.equal Nothing
+        , test "a lot of zeroes with '-' at 20th last char" <|
+            \_ -> UInt64.fromString "0000000000000000000000-0000000000000000000" |> Expect.equal Nothing
+        , test "a lot of zeroes with '+' at 20th last char" <|
+            \_ -> UInt64.fromString "0000000000000000000000+0000000000000000000" |> Expect.equal Nothing
+        , test "a lot of zeroes with '-' at 10th last char" <|
+            \_ -> UInt64.fromString "00000000000000000000000000000000-000000000" |> Expect.equal Nothing
+        , test "a lot of zeroes with '+' at 10th last char" <|
+            \_ -> UInt64.fromString "00000000000000000000000000000000+000000000" |> Expect.equal Nothing
+        , test "maxSafe" <|
+            \_ -> UInt64.fromString "9007199254740991" |> Expect.equal (Just UInt64.maxSafe)
+        , test "maxSafe + 2 ; this fails with String.toInt" <|
+            \_ ->
+                UInt64.fromString "9007199254740993"
+                    |> Maybe.map UInt64.toString
+                    |> Expect.equal (Just "9007199254740993")
 
         -- INDIVIDUAL - DECIMAL
         , test "0" <|
@@ -831,6 +873,8 @@ test_fromString =
         , fuzz (withoutPrefixFuzzer charToBinaryDigit) "fuzz - valid/invalid binary with valid prefix" <|
             \str -> UInt64.fromString ("0b" ++ str) |> Expect.equal (alternativeFromString ("0b" ++ str))
         , fuzz withPrefixFuzzer "fuzz - mostly invalid anything" <|
+            \str -> UInt64.fromString str |> Expect.equal (alternativeFromString str)
+        , fuzz plusMinusDecimalFuzzer "fuzz - decimal with '+'/'-' ; because of String.toInt" <|
             \str -> UInt64.fromString str |> Expect.equal (alternativeFromString str)
         ]
 

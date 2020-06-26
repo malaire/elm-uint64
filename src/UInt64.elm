@@ -862,7 +862,12 @@ fromString str =
             fromChars charToBinaryDigit (riskyFromNonDecimalDigits 1) chars
 
         chars ->
-            fromChars charToDecimalDigit riskyFromDecimalDigits chars
+            case chars of
+                [] ->
+                    Nothing
+
+                _ ->
+                    fromDecimalString str
 
 
 {-| Convert [`UInt64`](#UInt64) to uppercase hexadecimal `String` of 16 characters.
@@ -2512,43 +2517,6 @@ charToBinaryDigit char =
             Nothing
 
 
-charToDecimalDigit : Char -> Maybe Int
-charToDecimalDigit char =
-    case char of
-        '0' ->
-            Just 0
-
-        '1' ->
-            Just 1
-
-        '2' ->
-            Just 2
-
-        '3' ->
-            Just 3
-
-        '4' ->
-            Just 4
-
-        '5' ->
-            Just 5
-
-        '6' ->
-            Just 6
-
-        '7' ->
-            Just 7
-
-        '8' ->
-            Just 8
-
-        '9' ->
-            Just 9
-
-        _ ->
-            Nothing
-
-
 charToHexDigit : Char -> Maybe Int
 charToHexDigit char =
     case char of
@@ -2653,6 +2621,60 @@ charToOctalDigit char =
             Nothing
 
 
+fromDecimalString : String -> Maybe UInt64
+fromDecimalString str =
+    let
+        length =
+            String.length str
+    in
+    if String.startsWith "-" str || String.startsWith "+" str then
+        Nothing
+
+    else if length <= 15 then
+        case String.toInt str of
+            Just int ->
+                Just <| fromInt int
+
+            Nothing ->
+                Nothing
+
+    else if length <= 20 then
+        let
+            lowStr =
+                String.right 10 str
+        in
+        if String.startsWith "-" lowStr || String.startsWith "+" lowStr then
+            Nothing
+
+        else
+            case ( String.toInt <| String.dropRight 10 str, String.toInt lowStr ) of
+                ( Just highDecimal, Just lowDecimal ) ->
+                    -- maxValue = 1844674407|3709551615
+                    if highDecimal > 1844674407 || (highDecimal == 1844674407 && lowDecimal > 3709551615) then
+                        Nothing
+
+                    else
+                        -- highDecimal * 1e10 + lowDecimal
+                        mul (fromInt highDecimal) (UInt64 ( 0, 0x0254, 0x000BE400 ))
+                            |> add (fromInt lowDecimal)
+                            |> Just
+
+                _ ->
+                    Nothing
+
+    else
+        -- length > 20
+        let
+            prefix =
+                String.dropRight 20 str
+        in
+        if String.toInt prefix /= Just 0 then
+            Nothing
+
+        else
+            fromDecimalString <| String.right 20 str
+
+
 {-| Convert chars to digits and then to `UInt64` with given functions, ignoring leading zeroes.
 
   - Return `zero` if `chars` is empty or has only zeroes.
@@ -2729,58 +2751,6 @@ nibbleToHex x =
 
         _ ->
             'X'
-
-
-{-| Convert decimal digits to Float.
-
-  - `List.length digits` must be at most 15.
-  - Initial call is with `value = 0.0`.
-
--}
-riskyDecimalDigitsToFloat : Float -> List Int -> Float
-riskyDecimalDigitsToFloat value digits =
-    case digits of
-        x :: xs ->
-            riskyDecimalDigitsToFloat (value * 10.0 + Basics.toFloat x) xs
-
-        [] ->
-            value
-
-
-{-| Convert list of decimal digits to `UInt64`.
-
-  - `digitCount` must equal `List.length digits`.
-  - Each digit must be `0 <= digit <= 9`.
-  - Return `Just zero` for empty list.
-  - Return `Nothing` on overflow.
-
--}
-riskyFromDecimalDigits : Int -> List Int -> Maybe UInt64
-riskyFromDecimalDigits digitCount digits =
-    let
-        highDigitCount =
-            digitCount - 10
-    in
-    if digitCount > 20 then
-        Nothing
-
-    else
-        let
-            lowDecimal =
-                riskyDecimalDigitsToFloat 0.0 <| List.drop highDigitCount digits
-
-            highDecimal =
-                riskyDecimalDigitsToFloat 0.0 <| List.take highDigitCount digits
-        in
-        -- maxValue = 1844674407|3709551615
-        if highDecimal > 1844674407.0 || (highDecimal == 1844674407.0 && lowDecimal > 3709551615.0) then
-            Nothing
-
-        else
-            -- highDecimal * 1e10 + lowDecimal
-            mul (floor highDecimal) (UInt64 ( 0, 0x0254, 0x000BE400 ))
-                |> add (floor lowDecimal)
-                |> Just
 
 
 {-| Convert list of digits to `UInt64`.
