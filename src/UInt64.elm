@@ -849,22 +849,20 @@ fromString str =
                     Nothing
 
                 nonEmptyChars ->
-                    nonEmptyChars
-                        |> charListToDigitsWithoutLeadingZeroes charToDigit
-                        |> Maybe.andThen fromDigits
+                    fromNonEmptyChars charToDigit fromDigits nonEmptyChars
     in
     case String.toList str of
         '0' :: 'x' :: chars ->
-            fromChars charToHexDigit (fromNonDecimalDigits 4) chars
+            fromChars charToHexDigit (riskyFromNonDecimalDigits 4) chars
 
         '0' :: 'o' :: chars ->
-            fromChars charToOctalDigit (fromNonDecimalDigits 3) chars
+            fromChars charToOctalDigit (riskyFromNonDecimalDigits 3) chars
 
         '0' :: 'b' :: chars ->
-            fromChars charToBinaryDigit (fromNonDecimalDigits 1) chars
+            fromChars charToBinaryDigit (riskyFromNonDecimalDigits 1) chars
 
         chars ->
-            fromChars charToDecimalDigit fromDecimalDigits chars
+            fromChars charToDecimalDigit riskyFromDecimalDigits chars
 
 
 {-| Convert [`UInt64`](#UInt64) to uppercase hexadecimal `String` of 16 characters.
@@ -2479,23 +2477,26 @@ riskyFloatTo64 x =
 -- INTERNAL - CHAR / DIGIT
 
 
-{-| Convert chars to digits with given function, ignoring leading zeroes.
+{-| Convert chars to digits with given function.
 
-  - Return `Just []` if `chars` is empty or has only zeroes.
   - Return `Nothing` if `charToDigit` returns `Nothing` for any char of `chars`.
+  - Return also `Length.list digits` so it doesn't need to be calculated separately.
+  - Initial call is with `digitCount = 0` and `digits = []`.
 
 -}
-charListToDigitsWithoutLeadingZeroes : (Char -> Maybe Int) -> List Char -> Maybe (List Int)
-charListToDigitsWithoutLeadingZeroes charToDigit chars =
+charListToDigits : (Char -> Maybe Int) -> Int -> List Int -> List Char -> Maybe ( Int, List Int )
+charListToDigits charToDigit digitCount digits chars =
     case chars of
-        '0' :: tail ->
-            charListToDigitsWithoutLeadingZeroes charToDigit tail
+        x :: xs ->
+            case charToDigit x of
+                Just digit ->
+                    charListToDigits charToDigit (digitCount + 1) (digit :: digits) xs
 
-        noLeadingZeroes ->
-            List.foldr
-                (\char digits -> Maybe.map2 (::) (charToDigit char) digits)
-                (Just [])
-                noLeadingZeroes
+                Nothing ->
+                    Nothing
+
+        [] ->
+            Just ( digitCount, List.reverse digits )
 
 
 charToBinaryDigit : Char -> Maybe Int
@@ -2652,88 +2653,25 @@ charToOctalDigit char =
             Nothing
 
 
-{-| Convert list of decimal digits to `UInt64`.
+{-| Convert chars to digits and then to `UInt64` with given functions, ignoring leading zeroes.
 
-  - Each digit must be `0 <= digit <= 9`.
-  - Return `Just zero` for empty list.
-  - Return `Nothing` on overflow.
-
--}
-fromDecimalDigits : List Int -> Maybe UInt64
-fromDecimalDigits digits =
-    let
-        digitCount =
-            List.length digits
-
-        highDigitCount =
-            digitCount - 10
-    in
-    if digitCount > 20 then
-        Nothing
-
-    else
-        let
-            lowDecimal =
-                riskyDigitsToFloat 10.0 0.0 <| List.drop highDigitCount digits
-
-            highDecimal =
-                riskyDigitsToFloat 10.0 0.0 <| List.take highDigitCount digits
-        in
-        -- maxValue = 1844674407|3709551615
-        if highDecimal > 1844674407.0 || (highDecimal == 1844674407.0 && lowDecimal > 3709551615.0) then
-            Nothing
-
-        else
-            -- highDecimal * 1e10 + lowDecimal
-            mul (floor highDecimal) (UInt64 ( 0, 0x0254, 0x000BE400 ))
-                |> add (floor lowDecimal)
-                |> Just
-
-
-{-| Convert list of digits to `UInt64`.
-
-  - Each digit must be `0 <= digit <= 2 ^ bitsPerDigit - 1`.
-  - `bitsPerDigit` must be a factor of `48`.
-  - Return `Just zero` for empty list.
-  - Return `Nothing` on overflow.
+  - Return `zero` if `chars` is empty or has only zeroes.
+  - Return `Nothing` if `charListToDigits` or `fromDigits` returns `Nothing`.
 
 -}
-fromNonDecimalDigits : Int -> List Int -> Maybe UInt64
-fromNonDecimalDigits bitsPerDigit digits =
-    let
-        digitCount =
-            List.length digits
-    in
-    -- This check guards that `high` below doesn't go above `maxSafe`,
-    -- so it doesn't matter that 22 octal digits can overflow 64 bits slightly.
-    if digitCount > (64 + bitsPerDigit - 1) // bitsPerDigit then
-        Nothing
+fromNonEmptyChars : (Char -> Maybe Int) -> (Int -> List Int -> Maybe UInt64) -> List Char -> Maybe UInt64
+fromNonEmptyChars charToDigit fromDigits chars =
+    case chars of
+        '0' :: xs ->
+            fromNonEmptyChars charToDigit fromDigits xs
 
-    else
-        let
-            base =
-                Basics.toFloat <| 2 ^ bitsPerDigit
+        noLeadingZeroes ->
+            case charListToDigits charToDigit 0 [] noLeadingZeroes of
+                Just ( digitCount, digits ) ->
+                    fromDigits digitCount digits
 
-            highDigitCount =
-                digitCount - (48 // bitsPerDigit)
-
-            high =
-                riskyDigitsToFloat base 0.0 <| List.take highDigitCount digits
-
-            midLow =
-                riskyDigitsToFloat base 0.0 <| List.drop highDigitCount digits
-
-            mid =
-                Basics.floor <| midLow / limit24
-
-            low =
-                Basics.floor midLow - mid * limit24
-        in
-        if high > max16 then
-            Nothing
-
-        else
-            Just <| UInt64 ( Basics.floor high, mid, low )
+                Nothing ->
+                    Nothing
 
 
 {-| Return 'X' for invalid argument.
@@ -2793,19 +2731,129 @@ nibbleToHex x =
             'X'
 
 
-{-| Arguments must be such that output doesn't exceed `maxSafe`.
+{-| Convert decimal digits to Float.
 
-For initial call `value` is `0.0`.
+  - `List.length digits` must be at most 15.
+  - Initial call is with `value = 0.0`.
 
 -}
-riskyDigitsToFloat : Float -> Float -> List Int -> Float
-riskyDigitsToFloat base value digits =
+riskyDecimalDigitsToFloat : Float -> List Int -> Float
+riskyDecimalDigitsToFloat value digits =
     case digits of
-        head :: tail ->
-            riskyDigitsToFloat base (value * base + Basics.toFloat head) tail
+        x :: xs ->
+            riskyDecimalDigitsToFloat (value * 10.0 + Basics.toFloat x) xs
 
         [] ->
             value
+
+
+{-| Convert list of decimal digits to `UInt64`.
+
+  - `digitCount` must equal `List.length digits`.
+  - Each digit must be `0 <= digit <= 9`.
+  - Return `Just zero` for empty list.
+  - Return `Nothing` on overflow.
+
+-}
+riskyFromDecimalDigits : Int -> List Int -> Maybe UInt64
+riskyFromDecimalDigits digitCount digits =
+    let
+        highDigitCount =
+            digitCount - 10
+    in
+    if digitCount > 20 then
+        Nothing
+
+    else
+        let
+            lowDecimal =
+                riskyDecimalDigitsToFloat 0.0 <| List.drop highDigitCount digits
+
+            highDecimal =
+                riskyDecimalDigitsToFloat 0.0 <| List.take highDigitCount digits
+        in
+        -- maxValue = 1844674407|3709551615
+        if highDecimal > 1844674407.0 || (highDecimal == 1844674407.0 && lowDecimal > 3709551615.0) then
+            Nothing
+
+        else
+            -- highDecimal * 1e10 + lowDecimal
+            mul (floor highDecimal) (UInt64 ( 0, 0x0254, 0x000BE400 ))
+                |> add (floor lowDecimal)
+                |> Just
+
+
+{-| Convert list of digits to `UInt64`.
+
+  - `bitsPerDigit` must be a factor of `24`.
+  - `digitCount` must equal `List.length digits`.
+  - Each digit must be `0 <= digit <= 2 ^ bitsPerDigit - 1`.
+  - Return `Just zero` for empty list.
+  - Return `Nothing` on overflow.
+
+-}
+riskyFromNonDecimalDigits : Int -> Int -> List Int -> Maybe UInt64
+riskyFromNonDecimalDigits bitsPerDigit digitCount digits =
+    let
+        bitCount =
+            digitCount * bitsPerDigit
+    in
+    if bitCount <= 66 then
+        -- 22 octal digits is 66 bits
+        riskyFromNonDecimalDigitsHelper bitsPerDigit bitCount 0 0 0 digits
+
+    else
+        Nothing
+
+
+{-| Convert hex/octal/binary digits to UInt64.
+
+  - `bitsPerDigit` must be factor of `24`.
+  - `bitCount` must equal `bitsPerDigit * List.length digits` and be within `0 <= bitCount <= 66`.
+  - Each digit must be within `0 <= digit <= 2 ^ bitsPerDigit - 1`.
+  - Initial call is with `high = mid = low = 0`.
+  - Return `Nothing` on overflow.
+
+p.s. This would also handle base-4 and base-64.
+
+-}
+riskyFromNonDecimalDigitsHelper : Int -> Int -> Int -> Int -> Int -> List Int -> Maybe UInt64
+riskyFromNonDecimalDigitsHelper bitsPerDigit bitCount high mid low digits =
+    case digits of
+        x :: xs ->
+            if bitCount <= 24 then
+                riskyFromNonDecimalDigitsHelper
+                    bitsPerDigit
+                    (bitCount - bitsPerDigit)
+                    high
+                    mid
+                    (Bitwise.or x <| Bitwise.shiftLeftBy bitsPerDigit low)
+                    xs
+
+            else if bitCount <= 48 then
+                riskyFromNonDecimalDigitsHelper
+                    bitsPerDigit
+                    (bitCount - bitsPerDigit)
+                    high
+                    (Bitwise.or x <| Bitwise.shiftLeftBy bitsPerDigit mid)
+                    low
+                    xs
+
+            else
+                riskyFromNonDecimalDigitsHelper
+                    bitsPerDigit
+                    (bitCount - bitsPerDigit)
+                    (Bitwise.or x <| Bitwise.shiftLeftBy bitsPerDigit high)
+                    mid
+                    low
+                    xs
+
+        [] ->
+            if high > max16 then
+                Nothing
+
+            else
+                Just <| UInt64 ( high, mid, low )
 
 
 
