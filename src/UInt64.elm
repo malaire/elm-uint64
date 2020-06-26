@@ -843,31 +843,31 @@ so I can't make this function robust against invalid Unicode.
 fromString : String -> Maybe UInt64
 fromString str =
     let
-        fromChars charToDigit fromDigits chars =
-            case chars of
+        fromNonDecimalString charToDigit bitsPerDigit drop2 =
+            case String.toList drop2 of
                 [] ->
                     Nothing
 
                 nonEmptyChars ->
-                    fromNonEmptyChars charToDigit fromDigits nonEmptyChars
+                    riskyFromNonEmptyNonDecimalChars charToDigit bitsPerDigit nonEmptyChars
     in
-    case String.toList str of
-        '0' :: 'x' :: chars ->
-            fromChars charToHexDigit (riskyFromNonDecimalDigits 4) chars
+    case String.uncons str of
+        Just ( '0', drop1 ) ->
+            case String.uncons drop1 of
+                Just ( 'x', drop2 ) ->
+                    fromNonDecimalString charToHexDigit 4 drop2
 
-        '0' :: 'o' :: chars ->
-            fromChars charToOctalDigit (riskyFromNonDecimalDigits 3) chars
+                Just ( 'o', drop2 ) ->
+                    fromNonDecimalString charToOctalDigit 3 drop2
 
-        '0' :: 'b' :: chars ->
-            fromChars charToBinaryDigit (riskyFromNonDecimalDigits 1) chars
-
-        chars ->
-            case chars of
-                [] ->
-                    Nothing
+                Just ( 'b', drop2 ) ->
+                    fromNonDecimalString charToBinaryDigit 1 drop2
 
                 _ ->
                     fromDecimalString str
+
+        _ ->
+            fromDecimalString str
 
 
 {-| Convert [`UInt64`](#UInt64) to uppercase hexadecimal `String` of 16 characters.
@@ -2675,27 +2675,6 @@ fromDecimalString str =
             fromDecimalString <| String.right 20 str
 
 
-{-| Convert chars to digits and then to `UInt64` with given functions, ignoring leading zeroes.
-
-  - Return `zero` if `chars` is empty or has only zeroes.
-  - Return `Nothing` if `charListToDigits` or `fromDigits` returns `Nothing`.
-
--}
-fromNonEmptyChars : (Char -> Maybe Int) -> (Int -> List Int -> Maybe UInt64) -> List Char -> Maybe UInt64
-fromNonEmptyChars charToDigit fromDigits chars =
-    case chars of
-        '0' :: xs ->
-            fromNonEmptyChars charToDigit fromDigits xs
-
-        noLeadingZeroes ->
-            case charListToDigits charToDigit 0 [] noLeadingZeroes of
-                Just ( digitCount, digits ) ->
-                    fromDigits digitCount digits
-
-                Nothing ->
-                    Nothing
-
-
 {-| Return 'X' for invalid argument.
 -}
 nibbleToHex : UInt4 -> Char
@@ -2824,6 +2803,28 @@ riskyFromNonDecimalDigitsHelper bitsPerDigit bitCount high mid low digits =
 
             else
                 Just <| UInt64 ( high, mid, low )
+
+
+{-| Convert hex/octal/binary chars to digits and then to `UInt64`, ignoring leading zeroes.
+
+  - `bitsPerDigit` must be a factor of `24`.
+  - Return `Just zero` if `chars` is empty or has only zeroes.
+  - Return `Nothing` if `charListToDigits` or `riskyFromNonDecimalDigits` returns `Nothing`.
+
+-}
+riskyFromNonEmptyNonDecimalChars : (Char -> Maybe Int) -> Int -> List Char -> Maybe UInt64
+riskyFromNonEmptyNonDecimalChars charToDigit bitsPerDigit chars =
+    case chars of
+        '0' :: xs ->
+            riskyFromNonEmptyNonDecimalChars charToDigit bitsPerDigit xs
+
+        noLeadingZeroes ->
+            case charListToDigits charToDigit 0 [] noLeadingZeroes of
+                Just ( digitCount, digits ) ->
+                    riskyFromNonDecimalDigits bitsPerDigit digitCount digits
+
+                Nothing ->
+                    Nothing
 
 
 
