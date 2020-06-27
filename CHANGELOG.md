@@ -1,6 +1,10 @@
 # Changelog
 
 ## [Unreleased]
+
+_No unreleased changes worth mentioning._
+
+## [1.1.0] - 2020-06-27
 ### Added
 - `fromString` - convert decimal/hex/octal/binary `String` to `UInt64`
 - `div`, `mod`
@@ -11,9 +15,9 @@
 - Many internal optimizations, which have increased speed of nearly all functions.
 - Speed of `pow` with large exponents has increased 400% in Firefox.
 
-## [1.0.0] - 2020-06-20
+## 1.0.0 - 2020-06-20
 ### Added
 - Everything. First public version.
 
-[Unreleased]: https://github.com/malaire/elm-uint64/compare/1.0.0...HEAD
-[1.0.0]: https://github.com/malaire/elm-uint64/releases/tag/1.0.0
+[Unreleased]: https://github.com/malaire/elm-uint64/compare/1.1.0...HEAD
+[1.1.0]: https://github.com/malaire/elm-uint64/compare/1.0.0...1.1.0
