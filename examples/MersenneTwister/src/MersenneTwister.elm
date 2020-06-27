@@ -225,7 +225,7 @@ twist (MersenneTwister { mt }) =
                                 (UInt64.and lowerMask <| get (Basics.modBy nn (index + 1)) innerMt)
 
                         xA =
-                            if UInt64.getBit 0 x == 1 then
+                            if UInt64.isOdd x then
                                 UInt64.xor (UInt64.shiftRightZfBy 1 x) matrixA
 
                             else
