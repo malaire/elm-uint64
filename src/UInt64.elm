@@ -914,33 +914,31 @@ toHexString (UInt64 ( high, mid, low )) =
 -}
 toString : UInt64 -> String
 toString x =
+    -- `UInt64` is split to two parts
+    -- > maxValue = 1844674407370|9551615
+    -- > `divisor < 2^29` allows faster division
+    -- > `lowDecimal < 2^24` fits within 24-bit `low` part
+    -- > `highDecimal < 2^48` fits within 48-bit `mid/low` parts
+    -- > `highDecimal < maxSafe` can be converted with `String.fromInt`
     let
         divisor =
-            -- < 2^29 for faster division
             UInt64 ( 0, 0, 10000000 )
 
-        toDigits : UInt64 -> String
-        toDigits (UInt64 ( _, mid, low )) =
+        ( highDecimal, lowDecimal ) =
+            divMod x divisor
+
+        highDecimalToDigits (UInt64 ( _, mid, low )) =
             String.fromInt <| low + limit24 * mid
 
-        ( highMidDecimal, lowDecimal ) =
-            divMod x divisor
+        lowDecimalToDigits (UInt64 ( _, _, low )) =
+            String.fromInt low
     in
-    if isZero highMidDecimal then
-        toDigits lowDecimal
+    if isZero highDecimal then
+        lowDecimalToDigits lowDecimal
 
     else
-        let
-            ( highDecimal, midDecimal ) =
-                divMod highMidDecimal divisor
-        in
-        if isZero highDecimal then
-            toDigits midDecimal ++ (String.padLeft 7 '0' <| toDigits lowDecimal)
-
-        else
-            toDigits highDecimal
-                ++ (String.padLeft 7 '0' <| toDigits midDecimal)
-                ++ (String.padLeft 7 '0' <| toDigits lowDecimal)
+        highDecimalToDigits highDecimal
+            ++ (String.padLeft 7 '0' <| lowDecimalToDigits lowDecimal)
 
 
 
