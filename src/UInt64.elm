@@ -70,6 +70,8 @@ by one of the following three functions (or equivalent code):
 
   - If argument is `Int` and valid value is `0 <= x < 2^n`, `n <= 32`
       - argument is limited by [`limitSmallInt`](#limitSmallInt)`n value`.
+  - If argument is `Int` and valid value is `1 <= x <= 2^n`, `n <= 6`
+      - argument is limited by [`limitSmallInt`](#limitSmallInt)`n value` and `0` represents `2^n`.
   - If argument is `Int` and valid value can be `2^32` or above
       - argument is limited by [`limitLargeInt`](#limitLargeInt)`value`.
   - If argument is `Float` and valid value is `0 <= x <= max`
