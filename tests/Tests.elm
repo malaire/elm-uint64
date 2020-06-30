@@ -909,8 +909,8 @@ test_toHexString_fromBigEndianBytes =
                                     limitedByte =
                                         UInt64.limitSmallInt 8 byte
                                 in
-                                [ nibbleToHex <| Bitwise.shiftRightZfBy 4 limitedByte
-                                , nibbleToHex <| Bitwise.and 0x0F limitedByte
+                                [ TestUtil.riskyIntToCharDigit True <| Bitwise.shiftRightZfBy 4 limitedByte
+                                , TestUtil.riskyIntToCharDigit True <| Bitwise.and 0x0F limitedByte
                                 ]
                             )
                         |> String.fromList
@@ -1776,64 +1776,6 @@ fromUnprefixedString base charToDigit str =
                             Nothing
                 )
                 (Just UInt64.zero)
-
-
-{-| Different implementation from UInt64.elm to compare against.
--}
-nibbleToHex : Int -> Char
-nibbleToHex x =
-    case x of
-        0 ->
-            '0'
-
-        1 ->
-            '1'
-
-        2 ->
-            '2'
-
-        3 ->
-            '3'
-
-        4 ->
-            '4'
-
-        5 ->
-            '5'
-
-        6 ->
-            '6'
-
-        7 ->
-            '7'
-
-        8 ->
-            '8'
-
-        9 ->
-            '9'
-
-        10 ->
-            'A'
-
-        11 ->
-            'B'
-
-        12 ->
-            'C'
-
-        13 ->
-            'D'
-
-        14 ->
-            'E'
-
-        15 ->
-            'F'
-
-        _ ->
-            -- different character for invalid argument, compated to UInt64.elm
-            '*'
 
 
 {-| This can be replaced with ~~ UInt64.toBinString / UInt64.toOctString ~~ if those are implemented.

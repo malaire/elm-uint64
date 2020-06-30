@@ -1,5 +1,6 @@
 module TestUtil exposing
-    ( uint64
+    ( riskyIntToCharDigit
+    , uint64
     , uintUniformByBitsize
     , uintUniformByValue
     )
@@ -108,3 +109,29 @@ uintUniformByBitsize minBits maxBits =
 uintUniformByValue : Int -> Fuzzer Int
 uintUniformByValue maxBits =
     Fuzz.intRange 0 (2 ^ maxBits - 1)
+
+
+
+-- HELPERS - CHAR / STRING
+
+
+{-| Convert `Int` to `Char` digit. Return `*` for values over 15.
+
+Different implementation from UInt64.elm to compare against.
+
+-}
+riskyIntToCharDigit : Bool -> Int -> Char
+riskyIntToCharDigit upper x =
+    if x >= 0 && x <= 9 then
+        Char.fromCode (x + Char.toCode '0')
+
+    else if x >= 10 && x <= 15 then
+        if upper then
+            Char.fromCode (x - 10 + Char.toCode 'A')
+
+        else
+            Char.fromCode (x - 10 + Char.toCode 'a')
+
+    else
+        -- different character for invalid argument, compated to UInt64.elm
+        '*'
