@@ -886,22 +886,22 @@ fromString str =
 toHexString : UInt64 -> String
 toHexString (UInt64 ( high, mid, low )) =
     String.fromList
-        [ nibbleToHex <| Bitwise.and 0x0F <| Bitwise.shiftRightZfBy 12 high
-        , nibbleToHex <| Bitwise.and 0x0F <| Bitwise.shiftRightZfBy 8 high
-        , nibbleToHex <| Bitwise.and 0x0F <| Bitwise.shiftRightZfBy 4 high
-        , nibbleToHex <| Bitwise.and 0x0F high
-        , nibbleToHex <| Bitwise.shiftRightZfBy 20 mid
-        , nibbleToHex <| Bitwise.and 0x0F <| Bitwise.shiftRightZfBy 16 mid
-        , nibbleToHex <| Bitwise.and 0x0F <| Bitwise.shiftRightZfBy 12 mid
-        , nibbleToHex <| Bitwise.and 0x0F <| Bitwise.shiftRightZfBy 8 mid
-        , nibbleToHex <| Bitwise.and 0x0F <| Bitwise.shiftRightZfBy 4 mid
-        , nibbleToHex <| Bitwise.and 0x0F mid
-        , nibbleToHex <| Bitwise.shiftRightZfBy 20 low
-        , nibbleToHex <| Bitwise.and 0x0F <| Bitwise.shiftRightZfBy 16 low
-        , nibbleToHex <| Bitwise.and 0x0F <| Bitwise.shiftRightZfBy 12 low
-        , nibbleToHex <| Bitwise.and 0x0F <| Bitwise.shiftRightZfBy 8 low
-        , nibbleToHex <| Bitwise.and 0x0F <| Bitwise.shiftRightZfBy 4 low
-        , nibbleToHex <| Bitwise.and 0x0F low
+        [ riskyIntToUpperCaseDigit <| Bitwise.and 0x0F <| Bitwise.shiftRightZfBy 12 high
+        , riskyIntToUpperCaseDigit <| Bitwise.and 0x0F <| Bitwise.shiftRightZfBy 8 high
+        , riskyIntToUpperCaseDigit <| Bitwise.and 0x0F <| Bitwise.shiftRightZfBy 4 high
+        , riskyIntToUpperCaseDigit <| Bitwise.and 0x0F high
+        , riskyIntToUpperCaseDigit <| Bitwise.shiftRightZfBy 20 mid
+        , riskyIntToUpperCaseDigit <| Bitwise.and 0x0F <| Bitwise.shiftRightZfBy 16 mid
+        , riskyIntToUpperCaseDigit <| Bitwise.and 0x0F <| Bitwise.shiftRightZfBy 12 mid
+        , riskyIntToUpperCaseDigit <| Bitwise.and 0x0F <| Bitwise.shiftRightZfBy 8 mid
+        , riskyIntToUpperCaseDigit <| Bitwise.and 0x0F <| Bitwise.shiftRightZfBy 4 mid
+        , riskyIntToUpperCaseDigit <| Bitwise.and 0x0F mid
+        , riskyIntToUpperCaseDigit <| Bitwise.shiftRightZfBy 20 low
+        , riskyIntToUpperCaseDigit <| Bitwise.and 0x0F <| Bitwise.shiftRightZfBy 16 low
+        , riskyIntToUpperCaseDigit <| Bitwise.and 0x0F <| Bitwise.shiftRightZfBy 12 low
+        , riskyIntToUpperCaseDigit <| Bitwise.and 0x0F <| Bitwise.shiftRightZfBy 8 low
+        , riskyIntToUpperCaseDigit <| Bitwise.and 0x0F <| Bitwise.shiftRightZfBy 4 low
+        , riskyIntToUpperCaseDigit <| Bitwise.and 0x0F low
         ]
 
 
@@ -2365,10 +2365,6 @@ isZero (UInt64 ( high, mid, low )) =
 -- INTERNAL - TYPES
 
 
-type alias UInt4 =
-    Int
-
-
 type alias UInt16 =
     Int
 
@@ -2675,63 +2671,6 @@ fromDecimalString str =
             fromDecimalString <| String.right 20 str
 
 
-{-| Return 'X' for invalid argument.
--}
-nibbleToHex : UInt4 -> Char
-nibbleToHex x =
-    case x of
-        0 ->
-            '0'
-
-        1 ->
-            '1'
-
-        2 ->
-            '2'
-
-        3 ->
-            '3'
-
-        4 ->
-            '4'
-
-        5 ->
-            '5'
-
-        6 ->
-            '6'
-
-        7 ->
-            '7'
-
-        8 ->
-            '8'
-
-        9 ->
-            '9'
-
-        10 ->
-            'A'
-
-        11 ->
-            'B'
-
-        12 ->
-            'C'
-
-        13 ->
-            'D'
-
-        14 ->
-            'E'
-
-        15 ->
-            'F'
-
-        _ ->
-            'X'
-
-
 {-| Convert list of digits to `UInt64`.
 
   - `bitsPerDigit` must be a factor of `24`.
@@ -2825,6 +2764,66 @@ riskyFromNonEmptyNonDecimalChars charToDigit bitsPerDigit chars =
 
                 Nothing ->
                     Nothing
+
+
+{-| Convert `Int` to uppercase `Char` digit. Return `X` for values over 15.
+
+Works for binary/octal/decimal/hex as long as argument is valid.
+
+-}
+riskyIntToUpperCaseDigit : Int -> Char
+riskyIntToUpperCaseDigit x =
+    case x of
+        0 ->
+            '0'
+
+        1 ->
+            '1'
+
+        2 ->
+            '2'
+
+        3 ->
+            '3'
+
+        4 ->
+            '4'
+
+        5 ->
+            '5'
+
+        6 ->
+            '6'
+
+        7 ->
+            '7'
+
+        8 ->
+            '8'
+
+        9 ->
+            '9'
+
+        10 ->
+            'A'
+
+        11 ->
+            'B'
+
+        12 ->
+            'C'
+
+        13 ->
+            'D'
+
+        14 ->
+            'E'
+
+        15 ->
+            'F'
+
+        _ ->
+            'X'
 
 
 
