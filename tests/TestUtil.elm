@@ -1,5 +1,9 @@
 module TestUtil exposing
-    ( riskyIntToCharDigit
+    ( largeInt
+    , riskyIntToCharDigit
+    , smallInt
+    , uint52
+    , uint53
     , uint64
     , uintUniformByBitsize
     , uintUniformByValue
@@ -10,7 +14,82 @@ import UInt64 exposing (UInt64)
 
 
 
+-- CONSTANTS
+
+
+limit30 : Int
+limit30 =
+    0x40000000
+
+
+
 -- FUZZERS
+
+
+{-| For arguments checked with `limitLargeInt`.
+-}
+largeInt : Fuzzer Int
+largeInt =
+    Fuzz.frequency
+        [ -- below safe integer range
+          ( 1, Fuzz.constant -9007199254740992 )
+
+        -- negative values aren't that interesting here
+        , ( 1, Fuzz.map negate uint53NonZero )
+        , ( 1, Fuzz.constant 0 )
+        , ( 10, uint53NonZero )
+
+        -- above safe integer range
+        , ( 1, Fuzz.constant 9007199254740992 )
+        ]
+
+
+{-| For arguments checked with `limitSmallInt`.
+-}
+smallInt : Fuzzer Int
+smallInt =
+    Fuzz.frequency
+        [ -- below safe integer range
+          ( 1, Fuzz.constant -9007199254740992 )
+        , ( 5, Fuzz.map negate uint53NonZero )
+        , ( 1, Fuzz.constant 0 )
+        , ( 5, uint53NonZero )
+
+        -- above safe integer range
+        , ( 1, Fuzz.constant 9007199254740992 )
+        ]
+
+
+uint52 : Fuzzer Int
+uint52 =
+    Fuzz.frequency
+        [ ( 1, Fuzz.constant 0 )
+        , ( 10, uint52NonZero )
+        ]
+
+
+uint52NonZero : Fuzzer Int
+uint52NonZero =
+    Fuzz.frequency
+        [ ( 30, uintUniformByBitsize 1 30 )
+        , ( 22, Fuzz.map2 (\a b -> a * limit30 + b) (uintUniformByBitsize 1 22) (uintUniformByValue 30) )
+        ]
+
+
+uint53 : Fuzzer Int
+uint53 =
+    Fuzz.frequency
+        [ ( 1, Fuzz.constant 0 )
+        , ( 10, uint53NonZero )
+        ]
+
+
+uint53NonZero : Fuzzer Int
+uint53NonZero =
+    Fuzz.frequency
+        [ ( 30, uintUniformByBitsize 1 30 )
+        , ( 23, Fuzz.map2 (\a b -> a * limit30 + b) (uintUniformByBitsize 1 23) (uintUniformByValue 30) )
+        ]
 
 
 uint64 : Fuzzer UInt64
