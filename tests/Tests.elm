@@ -695,17 +695,6 @@ test_toInt32s_fromInt32s =
 
 test_fromString =
     let
-        anyCharFuzzer : Fuzzer Char
-        anyCharFuzzer =
-            Fuzz.frequency
-                [ -- NOTE: Don't generate lone high/low surrogates as this seems to cause problems with `elm-test`.
-                  --       Such invalid String:s are possible in Elm, and so I'd like to test them,
-                  --       but that doesn't seem possible for now.
-                  ( 3, Fuzz.map Char.fromCode <| Fuzz.intRange 0 0xD7FF )
-                , ( 1, Fuzz.map Char.fromCode <| Fuzz.intRange 0xE000 0xFFFF )
-                , ( 3, Fuzz.map Char.fromCode <| Fuzz.intRange 0x00100000 0x0010FFFF )
-                ]
-
         -- because of String.toInt
         plusMinusDecimalFuzzer : Fuzzer String
         plusMinusDecimalFuzzer =
@@ -724,7 +713,7 @@ test_fromString =
             -- For String of 10 characters, this gives about 50/50 chance of it containing at least one incorrect char.
             Fuzz.frequency
                 [ ( 93, Fuzz.oneOf <| List.map Fuzz.constant <| Dict.keys chars )
-                , ( 7, anyCharFuzzer )
+                , ( 7, TestUtil.anyChar )
                 ]
                 |> Fuzz.list
                 |> Fuzz.map String.fromList
@@ -740,7 +729,7 @@ test_fromString =
                         , ( 31, Fuzz.constant 'x' )
                         , ( 31, Fuzz.constant 'o' )
                         , ( 31, Fuzz.constant 'b' )
-                        , ( 3, anyCharFuzzer )
+                        , ( 3, TestUtil.anyChar )
                         ]
 
                 list =
@@ -750,7 +739,7 @@ test_fromString =
                         , ( 1, Fuzz.constant 'x' )
                         , ( 1, Fuzz.constant 'o' )
                         , ( 1, Fuzz.constant 'b' )
-                        , ( 4, anyCharFuzzer )
+                        , ( 4, TestUtil.anyChar )
                         ]
                         |> Fuzz.list
             in

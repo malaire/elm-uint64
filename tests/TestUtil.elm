@@ -1,5 +1,6 @@
 module TestUtil exposing
-    ( largeInt
+    ( anyChar
+    , largeInt
     , riskyIntToCharDigit
     , smallInt
     , uint52
@@ -24,6 +25,18 @@ limit30 =
 
 
 -- FUZZERS
+
+
+anyChar : Fuzzer Char
+anyChar =
+    -- NOTE: Don't generate lone high/low surrogates as this seems to cause problems with `elm-test`.
+    --       Such invalid String:s are possible in Elm, and so I'd like to test them,
+    --       but that doesn't seem possible for now.
+    Fuzz.frequency
+        [ ( 3, Fuzz.map Char.fromCode <| Fuzz.intRange 0 0xD7FF )
+        , ( 1, Fuzz.map Char.fromCode <| Fuzz.intRange 0xE000 0xFFFF )
+        , ( 3, Fuzz.map Char.fromCode <| Fuzz.intRange 0x00100000 0x0010FFFF )
+        ]
 
 
 {-| For arguments checked with `limitLargeInt`.
