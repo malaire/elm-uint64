@@ -1,8 +1,9 @@
 # Changelog
 
 ## [Unreleased]
-
-_No unreleased changes worth mentioning._
+### Changed
+- `limitSmallInt` takes additional `Bool` parameter
+  and can now limit also to range `1 <= x <= 2 ^ bitSize`.
 
 ## [1.1.0] - 2020-06-27
 ### Added

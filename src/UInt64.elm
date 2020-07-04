@@ -69,10 +69,10 @@ Every `Int` or `Float` argument of every [`UInt64`](#UInt64) function is limited
 by one of the following three functions (or equivalent code):
 
   - If argument is `Int` and valid value is `0 <= x < 2^n`, `n <= 32`
-      - argument is limited by [`limitSmallInt`](#limitSmallInt)`n value`.
-  - If argument is `Int` and valid value is `1 <= x <= 2^n`, `n <= 6`
-      - argument is limited by [`limitSmallInt`](#limitSmallInt)`n value` and `0` represents `2^n`.
-  - If argument is `Int` and valid value can be `2^32` or above
+      - argument is limited by [`limitSmallInt`](#limitSmallInt)`n True value`.
+  - If argument is `Int` and valid value is `1 <= x <= 2^n`, `n <= 32`
+      - argument is limited by [`limitSmallInt`](#limitSmallInt)`n False value`.
+  - If argument is `Int` and valid value can be above `2^32`
       - argument is limited by [`limitLargeInt`](#limitLargeInt)`value`.
   - If argument is `Float` and valid value is `0 <= x <= max`
       - argument is limited by [`limitFloat`](#limitFloat)`max value`.
@@ -358,9 +358,12 @@ limitLargeInt value =
         value
 
 
-{-| Limit `Int` to `0 <= value < 2 ^ bitSize`.
+{-| Limit `Int` to `0 <= x < 2 ^ bitSize` or `1 <= x <= 2 ^ bitSize`.
 
   - `bitSize`: `1 <= bitSize <= 32`
+  - `startFromZero`
+      - `True` if valid range is `0 <= x < 2 ^ bitSize`
+      - `False` if valid range is `1 <= x <= 2 ^ bitSize`
   - `value`: value to limit
 
 See [argument handling](#argument-handling).
@@ -369,34 +372,53 @@ Algorithm:
 
 1.  If value is negative, convert it to positive by two's complement.
 2.  Apply unsigned bitwise AND with bitmask `2 ^ bitSize - 1`.
+3.  If value is zero and `not startFromZero`, use `2 ^ bitSize` as value.
 
 
 ## Examples
 
-    -- `1234` limited to 6 bits, i.e. `0 <= x <= 63`
-    UInt64.limitSmallInt 6 1234
+    -- `1234` limited to 6 bits, `0 <= x <= 63`
+    UInt64.limitSmallInt 6 True 1234
         --> 18
 
-    -- `-1` limited to 8 bits, i.e. `0 <= x <= 255`
-    UInt64.limitSmallInt 8 -1
+    -- `-1` limited to 8 bits, `0 <= x <= 255`
+    UInt64.limitSmallInt 8 True -1
         --> 0xFF
 
-    -- `-1` limited to 32 bits
-    UInt64.limitSmallInt 32 -1
+    -- `-1` limited to 32 bits, `0 <= x <= 2^32-1`
+    UInt64.limitSmallInt 32 True -1
         --> 0xFFFFFFFF
 
+    -- `0` limited to 6 bits, `1 <= x <= 64`
+    UInt64.limitSmallInt 6 False 0
+        --> 64
+
 -}
-limitSmallInt : Int -> Int -> Int
-limitSmallInt givenBitSize value =
+limitSmallInt : Int -> Bool -> Int -> Int
+limitSmallInt givenBitSize startFromZero value =
     let
-        limitedBitSize =
+        maskedBitSize =
             Bitwise.and 0x1F givenBitSize
+
+        limitedBitSize =
+            if maskedBitSize == 0 then
+                32
+
+            else
+                maskedBitSize
+
+        maskedValue =
+            if limitedBitSize == 32 then
+                Bitwise.shiftRightZfBy 0 value
+
+            else
+                Bitwise.and (Bitwise.shiftLeftBy limitedBitSize 1 - 1) value
     in
-    if limitedBitSize == 0 then
-        Bitwise.shiftRightZfBy 0 value
+    if not startFromZero && maskedValue == 0 then
+        2 ^ limitedBitSize
 
     else
-        Bitwise.and (Bitwise.shiftLeftBy limitedBitSize 1 - 1) value
+        maskedValue
 
 
 

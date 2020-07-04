@@ -243,17 +243,25 @@ test_limitLargeInt =
 test_limitSmallInt =
     describe "limitSmallInt"
         [ -- INDIVIDUAL
-          test "-1, -1" <|
-            \_ -> UInt64.limitSmallInt -1 -1 |> Expect.equal 0x7FFFFFFF
-        , test "32, -1" <|
-            \_ -> UInt64.limitSmallInt 32 -1 |> Expect.equal 0xFFFFFFFF
+          test "-1 True -1" <|
+            \_ -> UInt64.limitSmallInt -1 True -1 |> Expect.equal 0x7FFFFFFF
+        , test "32 True -1" <|
+            \_ -> UInt64.limitSmallInt 32 True -1 |> Expect.equal 0xFFFFFFFF
+        , test "-1 False 0" <|
+            \_ -> UInt64.limitSmallInt -1 False 0 |> Expect.equal 0x80000000
+        , test "32 False 0" <|
+            \_ -> UInt64.limitSmallInt 32 False 0 |> Expect.equal 0x0000000100000000
+        , test "6 False 0" <|
+            \_ -> UInt64.limitSmallInt 6 False 0 |> Expect.equal 64
+        , test "6 False 64" <|
+            \_ -> UInt64.limitSmallInt 6 False 64 |> Expect.equal 64
 
         -- FUZZ
         -- FULL RANGE FUZZ: limitSmallInt
-        , fuzz2 smallInt smallInt "fuzz" <|
-            \bitSize value ->
+        , fuzz3 smallInt Fuzz.bool smallInt "fuzz" <|
+            \bitSize startFromZero value ->
                 let
-                    limitWith64Math validBitSize_ value_ =
+                    limitWith64Math validBitSize_ startFromZero_ value_ =
                         -- NOTE: "smallInt" can be outside safe range, so can't use `UInt64.fromInt` here
                         let
                             positiveValue_ =
@@ -264,27 +272,26 @@ test_limitSmallInt =
 
                                 else
                                     UInt64.floor <| Basics.toFloat value_
+
+                            limitedValue =
+                                UInt64.shiftLeftBy validBitSize_ UInt64.one
+                                    |> UInt64.decrement
+                                    |> UInt64.and positiveValue_
+                                    |> UInt64.toInt53
+                                    -- INTERNAL ERROR if `Nothing`
+                                    |> Maybe.withDefault 42
                         in
-                        UInt64.shiftLeftBy validBitSize_ UInt64.one
-                            |> UInt64.decrement
-                            |> UInt64.and positiveValue_
-                            |> UInt64.toInt53
+                        if not startFromZero_ && limitedValue == 0 then
+                            2 ^ validBitSize_
+
+                        else
+                            limitedValue
 
                     limitedBitSize =
-                        case limitWith64Math 5 bitSize of
-                            Just 0 ->
-                                32
-
-                            Just x ->
-                                x
-
-                            Nothing ->
-                                -- INTERNAL ERROR
-                                42
+                        limitWith64Math 5 False bitSize
                 in
-                UInt64.limitSmallInt bitSize value
-                    |> Just
-                    |> Expect.equal (limitWith64Math limitedBitSize value)
+                UInt64.limitSmallInt bitSize startFromZero value
+                    |> Expect.equal (limitWith64Math limitedBitSize startFromZero value)
         ]
 
 
@@ -499,10 +506,10 @@ test_fromBigEndianBytes =
             \bytes ->
                 UInt64.fromBigEndianBytes bytes
                     |> Expect.equal (UInt64.fromBigEndianBytes ([ 0, 0, 0, 0, 0, 0, 0, 0 ] ++ bytes))
-        , fuzz (Fuzz.list smallInt) "`limitSmallInt 8` per byte is no-op" <|
+        , fuzz (Fuzz.list smallInt) "`limitSmallInt 8 True` per byte is no-op" <|
             \bytes ->
                 UInt64.fromBigEndianBytes bytes
-                    |> Expect.equal (UInt64.fromBigEndianBytes (List.map (UInt64.limitSmallInt 8) bytes))
+                    |> Expect.equal (UInt64.fromBigEndianBytes (List.map (UInt64.limitSmallInt 8 True) bytes))
         , fuzz (Fuzz.list smallInt) "`takeLast 8` is no-op" <|
             let
                 takeLast n list =
@@ -577,13 +584,13 @@ test_fromInt24s_fromBigEndianBytes =
         \high mid low ->
             let
                 limitedHigh =
-                    UInt64.limitSmallInt 16 high
+                    UInt64.limitSmallInt 16 True high
 
                 limitedMid =
-                    UInt64.limitSmallInt 24 mid
+                    UInt64.limitSmallInt 24 True mid
 
                 limitedLow =
-                    UInt64.limitSmallInt 24 low
+                    UInt64.limitSmallInt 24 True low
 
                 bytes =
                     [ Bitwise.shiftRightZfBy 8 limitedHigh
@@ -606,10 +613,10 @@ test_fromInt32s_fromBigEndianBytes =
         \high32 low32 ->
             let
                 limitedHigh32 =
-                    UInt64.limitSmallInt 32 high32
+                    UInt64.limitSmallInt 32 True high32
 
                 limitedLow32 =
-                    UInt64.limitSmallInt 32 low32
+                    UInt64.limitSmallInt 32 True low32
 
                 bytes =
                     [ Bitwise.shiftRightZfBy 24 limitedHigh32
@@ -907,7 +914,7 @@ test_toHexString_fromBigEndianBytes =
                             (\byte ->
                                 let
                                     limitedByte =
-                                        UInt64.limitSmallInt 8 byte
+                                        UInt64.limitSmallInt 8 True byte
                                 in
                                 [ TestUtil.riskyIntToCharDigit True <| Bitwise.shiftRightZfBy 4 limitedByte
                                 , TestUtil.riskyIntToCharDigit True <| Bitwise.and 0x0F limitedByte
@@ -1360,7 +1367,7 @@ test_rotateLeftBy_shiftLeftBy_shiftRightZfBy =
                 |> Expect.equal
                     (let
                         limitedShift =
-                            UInt64.limitSmallInt 6 shift
+                            UInt64.limitSmallInt 6 True shift
                      in
                      UInt64.or
                         (UInt64.shiftLeftBy limitedShift a)
@@ -1376,7 +1383,7 @@ test_rotateRightBy_shiftLeftBy_shiftRightZfBy =
                 |> Expect.equal
                     (let
                         limitedShift =
-                            UInt64.limitSmallInt 6 shift
+                            UInt64.limitSmallInt 6 True shift
                      in
                      UInt64.or
                         (UInt64.shiftRightZfBy limitedShift a)
@@ -1392,7 +1399,7 @@ test_setBit =
                 |> Expect.equal
                     (let
                         limitedBitValue =
-                            UInt64.limitSmallInt 1 bitValue
+                            UInt64.limitSmallInt 1 True bitValue
                      in
                      if limitedBitValue == 0 then
                         UInt64.shiftLeftBy bitNumber UInt64.one
@@ -1413,7 +1420,7 @@ test_shiftLeftBy_mul =
                 |> Expect.equal
                     (let
                         limitedShift =
-                            UInt64.limitSmallInt 6 shift
+                            UInt64.limitSmallInt 6 True shift
 
                         multiplier =
                             if limitedShift < 53 then
@@ -1436,7 +1443,7 @@ test_shiftRightZfBy_div =
                 |> Expect.equal
                     (let
                         limitedShift =
-                            UInt64.limitSmallInt 6 shift
+                            UInt64.limitSmallInt 6 True shift
 
                         divider =
                             if limitedShift < 53 then
