@@ -94,6 +94,15 @@ up to [`maxSafe`](#maxSafe), but this could change in the future.
 
 **Note:** This affects also [`limitSmallInt`](#limitSmallInt) with `n = 32`.
 
+
+## `String`
+
+`String` argument can be any valid Unicode `String`.
+
+Behavior is undefined if `String` argument contains invalid Unicode.
+Such `String`:s can't be fuzz-tested with `elm-test`,
+so I can't make functions robust against invalid Unicode.
+
 @docs limitSmallInt, limitLargeInt, limitFloat
 
 
@@ -835,9 +844,7 @@ toInt32s (UInt64 ( high, mid, low )) =
 Return `Nothing` if `String` isn't valid for any of the above formats,
 or if the value would be above [`maxValue`](#maxValue).
 
-Behavior is undefined if `String` contains invalid Unicode.
-Such `String`:s can't be fuzz-tested with `elm-test` currently,
-so I can't make this function robust against invalid Unicode.
+See [`String` at argument handling](#-string-).
 
     UInt64.fromString "12345"
         |> Maybe.andThen UInt64.toInt31
