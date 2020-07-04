@@ -245,10 +245,14 @@ test_limitSmallInt =
         [ -- INDIVIDUAL
           test "-1 True -1" <|
             \_ -> UInt64.limitSmallInt -1 True -1 |> Expect.equal 0x7FFFFFFF
+        , test "0 True -1" <|
+            \_ -> UInt64.limitSmallInt 0 True -1 |> Expect.equal 0xFFFFFFFF
         , test "32 True -1" <|
             \_ -> UInt64.limitSmallInt 32 True -1 |> Expect.equal 0xFFFFFFFF
         , test "-1 False 0" <|
             \_ -> UInt64.limitSmallInt -1 False 0 |> Expect.equal 0x80000000
+        , test "0 False 0" <|
+            \_ -> UInt64.limitSmallInt 0 False 0 |> Expect.equal 0x0000000100000000
         , test "32 False 0" <|
             \_ -> UInt64.limitSmallInt 32 False 0 |> Expect.equal 0x0000000100000000
         , test "6 False 0" <|
