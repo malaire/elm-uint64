@@ -1,6 +1,10 @@
 # Changelog
 
 ## [Unreleased]
+
+_No unreleased changes worth mentioning._
+
+## [2.0.0] - 2020-07-07
 ### Added
 - `toDigits`, `toIntDigits` and `UInt64.Digits` for converting `UInt64` to `String`/`List`
   via `Digits`, with options like different bases, digits padding and digits grouping.
@@ -24,5 +28,6 @@
 ### Added
 - Everything. First public version.
 
-[Unreleased]: https://github.com/malaire/elm-uint64/compare/1.1.0...HEAD
+[Unreleased]: https://github.com/malaire/elm-uint64/compare/2.0.0...HEAD
+[2.0.0]: https://github.com/malaire/elm-uint64/compare/1.1.0...2.0.0
 [1.1.0]: https://github.com/malaire/elm-uint64/compare/1.0.0...1.1.0

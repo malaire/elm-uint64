@@ -3,7 +3,7 @@
     "name": "malaire/elm-uint64",
     "summary": "64-bit unsigned integer with division",
     "license": "MIT",
-    "version": "1.1.0",
+    "version": "2.0.0",
     "exposed-modules": [
         "UInt64",
         "UInt64.Digits"
@@ -13,8 +13,8 @@
         "elm/core": "1.0.0 <= v < 2.0.0"
     },
     "test-dependencies": {
+        "elm-community/list-extra": "8.2.4 <= v < 9.0.0",
         "elm-explorations/test": "1.2.2 <= v < 2.0.0",
-        "malaire/elm-safe-int": "1.0.0 <= v < 2.0.0",
-        "elm-community/list-extra": "8.2.4 <= v < 9.0.0"
+        "malaire/elm-safe-int": "1.0.0 <= v < 2.0.0"
     }
 }
