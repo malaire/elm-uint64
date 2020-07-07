@@ -6,6 +6,7 @@ module UInt64 exposing
     , floor, toFloat
     , fromInt32s, toInt32s, fromInt24s, toInt24s, fromDecimal12s, fromBigEndianBytes, toBigEndianBytes
     , fromString, toString, toHexString
+    , toDigits, toIntDigits
     , add, sub, mul, pow, increment, decrement, square
     , div, mod, divMod
     , and, or, xor, complement, shiftLeftBy, shiftRightZfBy, rotateLeftBy, rotateRightBy, shiftRightZfBy1, getBit, setBit
@@ -34,6 +35,8 @@ module UInt64 exposing
       - [`fromBigEndianBytes`](#fromBigEndianBytes), [`toBigEndianBytes`](#toBigEndianBytes)
   - [Conversion - String](#conversion-string)
       - [`fromString`](#fromString), [`toString`](#toString), [`toHexString`](#toHexString)
+  - [Conversion - Digits](#conversion-digits)
+      - [`toDigits`](#toDigits), [`toIntDigits`](#toIntDigits)
   - [Math](#math)
       - [`add`](#add), [`sub`](#sub), [`mul`](#mul), [`pow`](#pow)
       - [`increment`](#increment), [`decrement`](#decrement), [`square`](#square)
@@ -126,6 +129,14 @@ so I can't make functions robust against invalid Unicode.
 @docs fromString, toString, toHexString
 
 
+# Conversion - Digits
+
+These functions convert [`UInt64`](#UInt64) to [`Digits`](UInt64.Digits#Digits),
+which offers options like different bases, digits padding and digits grouping.
+
+@docs toDigits, toIntDigits
+
+
 # Math
 
 @docs add, sub, mul, pow, increment, decrement, square
@@ -165,6 +176,8 @@ These are not intended to be useful generally.
 -}
 
 import Bitwise
+import UInt64.Digits as Digits
+import UInt64.Internal as Internal exposing (Base(..), Digits(..))
 
 
 {-| 64-bit unsigned integer.
@@ -911,6 +924,9 @@ fromString str =
         |> UInt64.toHexString
         --> "0000000000000000"
 
+**Note:** See [Conversion - Digits](#conversion-digits) for more options
+converting [`UInt64`](#UInt64) to`String`.
+
 -}
 toHexString : UInt64 -> String
 toHexString (UInt64 ( high, mid, low )) =
@@ -940,6 +956,9 @@ toHexString (UInt64 ( high, mid, low )) =
         |> UInt64.toString
         --> "16777215"
 
+**Note:** See [Conversion - Digits](#conversion-digits) for more options
+converting [`UInt64`](#UInt64) to`String`.
+
 -}
 toString : UInt64 -> String
 toString x =
@@ -968,6 +987,183 @@ toString x =
     else
         highDecimalToDigits highDecimal
             ++ (String.padLeft 7 '0' <| lowDecimalToDigits lowDecimal)
+
+
+
+-- CONVERSION - DIGITS
+
+
+{-| Convert [`UInt64`](#UInt64) to [`Digits`](UInt64.Digits#Digits) of `Char`
+using given [`Base`](UInt64.Digits#Base).
+
+This is intended as first step in converting [`UInt64`](#UInt64) to `String`.
+
+    import UInt64
+    import UInt64.Digits as Digits
+
+    UInt64.maxValue
+        |> UInt64.toDigits Digits.octal
+        |> Digits.toString
+        --> "1777777777777777777777"
+
+    UInt64.floor 1e15
+        |> UInt64.toDigits Digits.hexLower
+        |> Digits.padToMultipleOf 4 '0'
+        |> Digits.groupToString 4 ' '
+        --> "0003 8d7e a4c6 8000"
+
+-}
+toDigits : Base -> UInt64 -> Digits Char
+toDigits base x =
+    if isZero x then
+        Digits ( 1, [ '0' ] )
+
+    else
+        case base of
+            Decimal ->
+                let
+                    digitsStr =
+                        toString x
+                in
+                Digits ( String.length digitsStr, String.toList digitsStr )
+
+            Hex upperOrLower ->
+                let
+                    (Digits ( digitCount, digitsInt )) =
+                        toIntDigits base x
+                in
+                if upperOrLower == Internal.Upper then
+                    Digits ( digitCount, List.map riskyIntToUpperCaseDigit digitsInt )
+
+                else
+                    Digits ( digitCount, List.map riskyIntToLowerCaseDigit digitsInt )
+
+            Octal ->
+                let
+                    (Digits ( digitCount, digitsInt )) =
+                        toIntDigits base x
+                in
+                Digits ( digitCount, List.map riskyIntToUpperCaseDigit digitsInt )
+
+            Binary ->
+                let
+                    (Digits ( digitCount, digitsInt )) =
+                        toIntDigits base x
+                in
+                Digits ( digitCount, List.map riskyIntToUpperCaseDigit digitsInt )
+
+
+{-| Convert [`UInt64`](#UInt64) to [`Digits`](UInt64.Digits#Digits) of `Int`
+using given [`Base`](UInt64.Digits#Base).
+
+This is like [`toDigits`](#toDigits) except that each digit will be `Int` instead of `Char`.
+
+    import UInt64
+    import UInt64.Digits as Digits
+
+    UInt64.fromInt 0xABC
+        |> UInt64.toIntDigits Digits.hex
+        |> Digits.toList
+        --> [ 10, 11, 12 ]
+
+    -- digit sum of 1234 is `1+2+3+4 = 10`
+    UInt64.fromInt 1234
+        |> UInt64.toIntDigits Digits.decimal
+        |> Digits.toList
+        |> List.sum
+        --> 10
+
+-}
+toIntDigits : Base -> UInt64 -> Digits Int
+toIntDigits base x =
+    let
+        toNonDecimalIntDigits bitsPerDigit partToDigits (UInt64 ( high, mid, low )) =
+            if high > 0 then
+                let
+                    ( highCount, highDigits ) =
+                        riskyIntToNonDecimalIntDigits bitsPerDigit high 0 []
+                in
+                Digits
+                    ( highCount + 48 // bitsPerDigit
+                    , highDigits ++ partToDigits mid ++ partToDigits low
+                    )
+
+            else if mid > 0 then
+                let
+                    ( midCount, midDigits ) =
+                        riskyIntToNonDecimalIntDigits bitsPerDigit mid 0 []
+                in
+                Digits ( midCount + 24 // bitsPerDigit, midDigits ++ partToDigits low )
+
+            else
+                Digits <| riskyIntToNonDecimalIntDigits bitsPerDigit low 0 []
+    in
+    if isZero x then
+        Digits ( 1, [ 0 ] )
+
+    else
+        case base of
+            Decimal ->
+                toDecimalIntDigits x
+
+            Hex _ ->
+                let
+                    partToDigits part =
+                        [ Bitwise.shiftRightZfBy 20 part
+                        , Bitwise.and 0x0F <| Bitwise.shiftRightZfBy 16 part
+                        , Bitwise.and 0x0F <| Bitwise.shiftRightZfBy 12 part
+                        , Bitwise.and 0x0F <| Bitwise.shiftRightZfBy 8 part
+                        , Bitwise.and 0x0F <| Bitwise.shiftRightZfBy 4 part
+                        , Bitwise.and 0x0F part
+                        ]
+                in
+                toNonDecimalIntDigits 4 partToDigits x
+
+            Octal ->
+                let
+                    partToDigits part =
+                        [ Bitwise.shiftRightZfBy 21 part
+                        , Bitwise.and 0x07 <| Bitwise.shiftRightZfBy 18 part
+                        , Bitwise.and 0x07 <| Bitwise.shiftRightZfBy 15 part
+                        , Bitwise.and 0x07 <| Bitwise.shiftRightZfBy 12 part
+                        , Bitwise.and 0x07 <| Bitwise.shiftRightZfBy 9 part
+                        , Bitwise.and 0x07 <| Bitwise.shiftRightZfBy 6 part
+                        , Bitwise.and 0x07 <| Bitwise.shiftRightZfBy 3 part
+                        , Bitwise.and 0x07 part
+                        ]
+                in
+                toNonDecimalIntDigits 3 partToDigits x
+
+            Binary ->
+                let
+                    partToDigits part =
+                        [ Bitwise.shiftRightZfBy 23 part
+                        , Bitwise.and 0x01 <| Bitwise.shiftRightZfBy 22 part
+                        , Bitwise.and 0x01 <| Bitwise.shiftRightZfBy 21 part
+                        , Bitwise.and 0x01 <| Bitwise.shiftRightZfBy 20 part
+                        , Bitwise.and 0x01 <| Bitwise.shiftRightZfBy 19 part
+                        , Bitwise.and 0x01 <| Bitwise.shiftRightZfBy 18 part
+                        , Bitwise.and 0x01 <| Bitwise.shiftRightZfBy 17 part
+                        , Bitwise.and 0x01 <| Bitwise.shiftRightZfBy 16 part
+                        , Bitwise.and 0x01 <| Bitwise.shiftRightZfBy 15 part
+                        , Bitwise.and 0x01 <| Bitwise.shiftRightZfBy 14 part
+                        , Bitwise.and 0x01 <| Bitwise.shiftRightZfBy 13 part
+                        , Bitwise.and 0x01 <| Bitwise.shiftRightZfBy 12 part
+                        , Bitwise.and 0x01 <| Bitwise.shiftRightZfBy 11 part
+                        , Bitwise.and 0x01 <| Bitwise.shiftRightZfBy 10 part
+                        , Bitwise.and 0x01 <| Bitwise.shiftRightZfBy 9 part
+                        , Bitwise.and 0x01 <| Bitwise.shiftRightZfBy 8 part
+                        , Bitwise.and 0x01 <| Bitwise.shiftRightZfBy 7 part
+                        , Bitwise.and 0x01 <| Bitwise.shiftRightZfBy 6 part
+                        , Bitwise.and 0x01 <| Bitwise.shiftRightZfBy 5 part
+                        , Bitwise.and 0x01 <| Bitwise.shiftRightZfBy 4 part
+                        , Bitwise.and 0x01 <| Bitwise.shiftRightZfBy 3 part
+                        , Bitwise.and 0x01 <| Bitwise.shiftRightZfBy 2 part
+                        , Bitwise.and 0x01 <| Bitwise.shiftRightZfBy 1 part
+                        , Bitwise.and 0x01 part
+                        ]
+                in
+                toNonDecimalIntDigits 1 partToDigits x
 
 
 
@@ -2795,6 +2991,109 @@ riskyFromNonEmptyNonDecimalChars charToDigit bitsPerDigit chars =
                     Nothing
 
 
+{-| Convert `Int` to decimal digits of `0 <= digit <= 9`.
+
+  - Given `Int` must be `0 <= x < 2^31`.
+  - Return `(0, [])` if `x == 0`.
+  - Return also `Length.list digits` so it doesn't need to be calculated separately.
+  - Initial call is with `digitCount = 0` and `digits = []`.
+
+-}
+riskyIntToDecimalIntDigits : Int -> Int -> List Int -> ( Int, List Int )
+riskyIntToDecimalIntDigits x digitCount digits =
+    if x == 0 then
+        ( digitCount, digits )
+
+    else
+        riskyIntToDecimalIntDigits (x // 10) (digitCount + 1) (modBy 10 x :: digits)
+
+
+{-| Convert `Int` to lowercase `Char` digit. Return `x` for values over 15.
+
+Works for binary/octal/decimal/hex as long as argument is valid.
+
+-}
+riskyIntToLowerCaseDigit : Int -> Char
+riskyIntToLowerCaseDigit x =
+    case x of
+        0 ->
+            '0'
+
+        1 ->
+            '1'
+
+        2 ->
+            '2'
+
+        3 ->
+            '3'
+
+        4 ->
+            '4'
+
+        5 ->
+            '5'
+
+        6 ->
+            '6'
+
+        7 ->
+            '7'
+
+        8 ->
+            '8'
+
+        9 ->
+            '9'
+
+        10 ->
+            'a'
+
+        11 ->
+            'b'
+
+        12 ->
+            'c'
+
+        13 ->
+            'd'
+
+        14 ->
+            'e'
+
+        15 ->
+            'f'
+
+        _ ->
+            'x'
+
+
+{-| Convert `Int` to hex/octal/binary digits of `0 <= digit <= 2 ^ bitsPerDigit - 1`.
+
+  - `bitsPerDigit` must be a factor of `24`.
+  - Given `Int` must be `0 <= x < 2^31`.
+  - Return `(0, [])` if `x == 0`.
+  - Return also `Length.list digits` so it doesn't need to be calculated separately.
+  - Initial call is with `digitCount = 0` and `digits = []`.
+
+-}
+riskyIntToNonDecimalIntDigits : Int -> Int -> Int -> List Int -> ( Int, List Int )
+riskyIntToNonDecimalIntDigits bitsPerDigit x digitCount digits =
+    let
+        bitMask =
+            Bitwise.shiftLeftBy bitsPerDigit 1 - 1
+    in
+    if x == 0 then
+        ( digitCount, digits )
+
+    else
+        riskyIntToNonDecimalIntDigits
+            bitsPerDigit
+            (Bitwise.shiftRightZfBy bitsPerDigit x)
+            (digitCount + 1)
+            (Bitwise.and bitMask x :: digits)
+
+
 {-| Convert `Int` to uppercase `Char` digit. Return `X` for values over 15.
 
 Works for binary/octal/decimal/hex as long as argument is valid.
@@ -2853,6 +3152,72 @@ riskyIntToUpperCaseDigit x =
 
         _ ->
             'X'
+
+
+toDecimalIntDigits : UInt64 -> Digits Int
+toDecimalIntDigits x =
+    -- `UInt64` is split to three 7-decimal-digit parts
+    -- > maxValue = 184467|4407370|9551615
+    -- > `divisor < 2^29` allows faster division
+    -- > `each part < 2^31` allows `Int` math
+    -- > `lowDecimal < 2^24` fits within 24-bit `low` part
+    -- > `highMidDecimal < 2^48` fits within 48-bit `mid/low` parts
+    let
+        divisorInt =
+            10000000
+
+        divisor =
+            UInt64 ( 0, 0, divisorInt )
+
+        ( highMidDecimal, UInt64 ( _, _, lowDecimal ) ) =
+            divMod x divisor
+    in
+    if isZero highMidDecimal then
+        Digits <| riskyIntToDecimalIntDigits lowDecimal 0 []
+
+    else
+        let
+            (UInt64 ( _, highMidDecimal_mid, highMidDecimal_low )) =
+                highMidDecimal
+
+            highMidDecimalInt =
+                highMidDecimal_low + limit24 * highMidDecimal_mid
+
+            highDecimal =
+                Basics.floor <| Basics.toFloat highMidDecimalInt / divisorInt
+
+            midDecimal =
+                highMidDecimalInt - divisorInt * highDecimal
+        in
+        if highDecimal == 0 then
+            let
+                ( lowCount, lowDigits ) =
+                    riskyIntToDecimalIntDigits lowDecimal 0 []
+
+                ( midCount, midDigits ) =
+                    riskyIntToDecimalIntDigits midDecimal 0 []
+            in
+            Digits ( midCount + 7, midDigits ++ List.repeat (7 - lowCount) 0 ++ lowDigits )
+
+        else
+            let
+                ( lowCount, lowDigits ) =
+                    riskyIntToDecimalIntDigits lowDecimal 0 []
+
+                ( midCount, midDigits ) =
+                    riskyIntToDecimalIntDigits midDecimal 0 []
+
+                ( highCount, highDigits ) =
+                    riskyIntToDecimalIntDigits highDecimal 0 []
+            in
+            Digits
+                ( highCount + 14
+                , highDigits
+                    ++ List.repeat (7 - midCount) 0
+                    ++ midDigits
+                    ++ List.repeat (7 - lowCount) 0
+                    ++ lowDigits
+                )
 
 
 

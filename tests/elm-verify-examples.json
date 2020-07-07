@@ -1,4 +1,4 @@
 {
   "root": "../src",
-  "tests": [ "README.md", "UInt64" ]
+  "tests": [ "README.md", "UInt64", "UInt64.Digits" ]
 }

@@ -4,6 +4,7 @@ import Benchmark exposing (..)
 import Benchmark.Runner exposing (BenchmarkProgram, program)
 import SafeInt.Unchecked as Unchecked
 import UInt64 exposing (UInt64)
+import UInt64.Digits as Digits
 
 
 main : BenchmarkProgram
@@ -12,6 +13,7 @@ main =
         describe "All"
             [ -- ### CONVERSION
               -- benchmark_fromString
+              -- benchmark_toString
               -- ### MATH
               -- benchmark_math
               -- benchmark_pow_tiny
@@ -44,6 +46,17 @@ benchmark_fromString =
             \_ -> UInt64.fromString "0o1234567012345670"
         , benchmark "binary" <|
             \_ -> UInt64.fromString "0b1010101010101010"
+        ]
+
+
+benchmark_toString =
+    describe "toString etc."
+        [ benchmark "UInt64.toString" <|
+            \_ -> UInt64.toString uint64Prime53
+        , benchmark "UInt64.toDigits" <|
+            \_ -> UInt64.toDigits Digits.decimal uint64Prime53
+        , benchmark "UInt64.toIntDigits" <|
+            \_ -> UInt64.toIntDigits Digits.decimal uint64Prime53
         ]
 
 

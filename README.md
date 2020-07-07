@@ -20,6 +20,17 @@ UInt64.fromInt32s 0x11223344 0xAABBCCDD
     |> UInt64.toHexString
     --> "BCCDD11223344AAB"
 ```
+Includes many conversion functions, for example converting [`UInt64`](UInt64#UInt64) to `String`.
+```elm
+import UInt64
+import UInt64.Digits as Digits
+
+UInt64.fromInt 0x10F
+    |> UInt64.toDigits Digits.binary
+    |> Digits.padToPowerOfTwo '0'
+    |> Digits.groupToString 4 ' '
+    --> "0000 0001 0000 1111"
+```
 
 ## Changelog
 

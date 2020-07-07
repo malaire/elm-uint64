@@ -5,7 +5,8 @@
     "license": "MIT",
     "version": "1.1.0",
     "exposed-modules": [
-        "UInt64"
+        "UInt64",
+        "UInt64.Digits"
     ],
     "elm-version": "0.19.0 <= v < 0.20.0",
     "dependencies": {
@@ -13,6 +14,7 @@
     },
     "test-dependencies": {
         "elm-explorations/test": "1.2.2 <= v < 2.0.0",
-        "malaire/elm-safe-int": "1.0.0 <= v < 2.0.0"
+        "malaire/elm-safe-int": "1.0.0 <= v < 2.0.0",
+        "elm-community/list-extra": "8.2.4 <= v < 9.0.0"
     }
 }

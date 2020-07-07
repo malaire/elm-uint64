@@ -1,6 +1,10 @@
 # Changelog
 
 ## [Unreleased]
+### Added
+- `toDigits`, `toIntDigits` and `UInt64.Digits` for converting `UInt64` to `String`/`List`
+  via `Digits`, with options like different bases, digits padding and digits grouping.
+
 ### Changed
 - `limitSmallInt` takes additional `Bool` parameter
   and can now limit also to range `1 <= x <= 2 ^ bitSize`.
