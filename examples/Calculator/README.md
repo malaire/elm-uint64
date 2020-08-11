@@ -14,7 +14,7 @@ Enter the expression. Whenever the expression is valid, result is immediately sh
 
 - decimal: `123`
 - hexadecimal with `0x` prefix: `0xFF`
-- octal with `0o` prefix: `0x777`
+- octal with `0o` prefix: `0o777`
 - binary with `0b` prefix: `0b10101010`
 
 ### Operators
